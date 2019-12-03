@@ -1278,9 +1278,6 @@ function DecodeFloatRGBA(rgba, i) {
 }
 window.addEventListener('mousemove', e => {
   const rect = renderer.domElement.getBoundingClientRect();
-  /* const {left, top, width, height} = rect;
-  const ex = (e.clientX - left) / width;
-  const ey = 1-((e.clientY - top) / height); */
 
   renderer.readRenderTargetPixels(colorTarget, colorTarget.width/2, colorTarget.height/2, 1, 1, pbuf, 0);
   const z = DecodeFloatRGBA(pbuf, 0);
