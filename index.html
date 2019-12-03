@@ -1152,7 +1152,6 @@ gpuSwitchWrap.addEventListener('click', () => {
 const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
 voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
-  const enabled = voxelsSwitchWrap.classList.contains('on');
   voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
 });
 const meshingSwitchWrap = document.getElementById('meshing-switch-wrap');
