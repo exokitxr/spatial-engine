@@ -1461,11 +1461,11 @@ const voxelsMaterial = (() => {
   const voxelsVsh = `
     attribute vec3 pos;
     uniform sampler2D uPotentialsTex;
-    varying vec3 vPosition;
+    // varying vec3 vPosition;
     varying float vPotential;
     void main() {
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-      vPosition = position;
+      // vPosition = position;
 
       float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 uv = vec2(ux, 0.5);
@@ -1473,7 +1473,7 @@ const voxelsMaterial = (() => {
     }
   `;
   const voxelsFsh = `
-    varying vec3 vPosition;
+    // varying vec3 vPosition;
     varying float vPotential;
     void main() {
       // gl_FragColor = vec4(vPosition * vPotential, (2.0-vPosition.y) * 0.05);
