@@ -1132,12 +1132,8 @@ const colorTarget = new THREE.WebGLRenderTarget(size, size, {
 colorTarget.depthTexture = new THREE.DepthTexture(colorTarget.width, colorTarget.height);
 const colorMesh = _makeRenderTargetPlaneMesh(colorTarget.texture);
 colorMesh.position.set(1, 1, 0);
-container.add(colorMesh);
+// container.add(colorMesh);
 // window.depthTexture = colorTarget.depthTexture;
-
-const depthMesh = _makeRenderTargetPlaneMesh(colorTarget.depthTexture);
-depthMesh.position.set(1.5, 1, 0);
-container.add(depthMesh);
 
 const cubeMesh = (() => {
   const geometry = new THREE.BoxBufferGeometry(0.05, 0.05, 0.05);
@@ -1306,7 +1302,6 @@ captureMeshButton.addEventListener('click', () => {
 
 const _renderDepth = () => {
   colorMesh.visible = false;
-  depthMesh.visible = false;
   cubeMesh.visible = false;
   particlesMesh.visible = false;
 
@@ -1321,7 +1316,6 @@ const _renderDepth = () => {
   scene.overrideMaterial = null; */
 
   colorMesh.visible = true;
-  depthMesh.visible = true;
   cubeMesh.visible = true;
   particlesMesh.visible = true;
 
