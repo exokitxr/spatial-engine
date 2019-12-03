@@ -1089,7 +1089,10 @@ container.add(mirrorMesh);
   const {url} = avatarModels[0];
   const src = `https://avatar-models.exokit.org/${url}`;
   const object = await ModelLoader.loadModelUrl(src);
-  container.add(object.scene);
+  const model = object.scene;
+  model.position.x = 0.5;
+  model.position.z = 0.5;
+  container.add(model);
 })();
 
 const gpuSwitchWrap = document.getElementById('gpu-switch-wrap');
@@ -1410,6 +1413,91 @@ const depthMaterial = (() => {
   });
 })();
 
+const voxelsMaterial = (() => {
+  const voxelsVsh = `
+    // uniform float uAnimation;
+    // attribute float typex;
+    varying vec3 vPosition;
+    void main() {
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+      vPosition = position;
+    }
+  `;
+  const voxelsFsh = `
+    varying vec3 vPosition;
+    void main() {
+      gl_FragColor = vec4(vPosition, (2.0-vPosition.y) * 0.05);
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      /* uCurrentParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uHoverParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uSelectedParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uSelectedColor: {
+        type: 'c',
+        value: new THREE.Color().setHex(0x29b6f6),
+      },
+      uAnimation: {
+        type: 'f',
+        value: 1,
+      }, */
+    },
+    vertexShader: voxelsVsh,
+    fragmentShader: voxelsFsh,
+    transparent: true,
+    depthWrite: false,
+  });
+})();
+
+const voxelsMesh = (() => {
+  const width = 10;
+  const height = 20;
+  const depth = 10;
+  const voxelSize = 0.1;
+  const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
+    .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
+    .toNonIndexed();
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
+  let i = 0;
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      for (let z = 0; z < depth; z++) {
+        const newCubeGeometry = cubeGeometry.clone()
+          .applyMatrix(localMatrix.makeTranslation(x*voxelSize, y*voxelSize, z*voxelSize));
+        positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
+        i++;
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const material = voxelsMaterial;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  /* mesh.update = () => {
+    cursorCamera.position.copy(camera.position);
+    cursorCamera.quaternion.copy(camera.quaternion);
+    _renderDepth(colorTarget, cursorCamera);
+
+    const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
+    renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
+
+    eometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  }; */
+  return mesh;
+})();
+container.add(voxelsMesh);
+
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
   /* if (rgba[i] === 0 && rgba[i+1] === 0 && rgba[i+2] === 0 && rgba[3] === 0) {
@@ -1454,6 +1542,7 @@ const _renderDepth = (target, camera) => {
   cubeMesh.visible = false;
   particlesMesh.visible = false;
   gpuParticlesMesh.visible = false;
+  voxelsMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
   renderer.setRenderTarget(target);
@@ -1465,6 +1554,7 @@ const _renderDepth = (target, camera) => {
   const enabled = gpuSwitchWrap.classList.contains('on');
   particlesMesh.visible = !enabled;
   gpuParticlesMesh.visible = enabled;
+  voxelsMesh.visible = true;
 
   renderer.setRenderTarget(null);
 };
