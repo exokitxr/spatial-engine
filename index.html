@@ -1305,6 +1305,7 @@ const _renderDepth = () => {
   colorMesh.visible = false;
   depthMesh.visible = false;
   cubeMesh.visible = false;
+  particlesMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
   renderer.setRenderTarget(colorTarget);
@@ -1319,6 +1320,7 @@ const _renderDepth = () => {
   colorMesh.visible = true;
   depthMesh.visible = true;
   cubeMesh.visible = true;
+  particlesMesh.visible = true;
 
   renderer.setRenderTarget(null);
 };
