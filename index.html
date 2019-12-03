@@ -1759,11 +1759,17 @@ setInterval(() => {
 }, 100);
 
 const _renderDepth = (target, camera) => {
+  const oldColorMeshVisible = colorMesh.visible;
   colorMesh.visible = false;
+  const oldCubeMeshVisible = cubeMesh.visible;
   cubeMesh.visible = false;
+  const oldParticlesMeshVisible = particlesMesh.visible;
   particlesMesh.visible = false;
+  const oldGpuParticlesMeshVisible = gpuParticlesMesh.visible;
   gpuParticlesMesh.visible = false;
+  const oldVoxelsMeshVisible = voxelsMesh.visible;
   voxelsMesh.visible = false;
+  const oldMarchCubesMeshVisible = marchCubesMesh.visible;
   marchCubesMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
@@ -1773,13 +1779,12 @@ const _renderDepth = (target, camera) => {
   scene.overrideMaterial = null;
   renderer.setClearColor(localColor.set(0, 0, 0), 0);
 
-  colorMesh.visible = true;
-  cubeMesh.visible = true;
-  const enabled = gpuSwitchWrap.classList.contains('on');
-  particlesMesh.visible = !enabled;
-  gpuParticlesMesh.visible = enabled;
-  voxelsMesh.visible = true;
-  marchCubesMesh.visible = true;
+  colorMesh.visible = oldColorMeshVisible;
+  cubeMesh.visible = oldCubeMeshVisible;
+  particlesMesh.visible = oldParticlesMeshVisible;
+  gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
+  voxelsMesh.visible = oldVoxelsMeshVisible;
+  marchCubesMesh.visible = oldMarchCubesMeshVisible;
 
   renderer.setRenderTarget(null);
 };
