@@ -869,6 +869,7 @@ const cursorCamera = new THREE.OrthographicCamera(
   height_ortho /  2, height_ortho  / -2,
   0.1, 300
 );
+const raycastCamera = cursorCamera.clone();
 
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
@@ -1135,6 +1136,15 @@ colorMesh.position.set(1, 1, 0);
 // container.add(colorMesh);
 // window.depthTexture = colorTarget.depthTexture;
 
+const raycastTarget = new THREE.WebGLRenderTarget(1, 1, {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.NearestFilter,
+  format: THREE.RGBAFormat,
+  type: THREE.FloatType,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+
 const cubeMesh = (() => {
   const geometry = new THREE.BoxBufferGeometry(0.05, 0.05, 0.05);
   const material = new THREE.MeshPhongMaterial({
@@ -1146,7 +1156,7 @@ const cubeMesh = (() => {
 })();
 container.add(cubeMesh);
 
-const particlesMesh = (() => {
+/* const particlesMesh = (() => {
   const resolution = 64;
   const resolutionP1 = resolution + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
@@ -1189,76 +1199,204 @@ const particlesMesh = (() => {
   };
   return mesh;
 })();
-container.add(particlesMesh);
+container.add(particlesMesh); */
 
-const depthVsh = `
-  // uniform float uAnimation;
-  // attribute float typex;
-  // varying vec3 vPosition;
-  void main() {
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-  }
-`;
-const depthFsh = `
-  vec4 EncodeFloatRGBA( float v ) {
-    vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
-    enc = fract(enc);
-    // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
-    return enc;
-  }
-  /* float DecodeFloatRGBA( vec4 rgba ) {
-    return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
-  } */
-  // const float infinity = 1./0.;
-  void main() {
-    float originalZ = ${cursorCamera.near.toFixed(8)} + gl_FragCoord.z / gl_FragCoord.w * ${(cursorCamera.far - cursorCamera.near).toFixed(8)};
-    // gl_FragColor = EncodeFloatRGBA(originalZ);
+const gpuParticlesMeshMaterial = (() => {
+  const depthVsh = `
+    // uniform float uAnimation;
+    // attribute float typex;
+    // varying vec3 vPosition;
+    uniform mat4 uMatrixWorld;
+    uniform mat4 uProjectionMatrixInverse;
+    uniform vec3 uDirection;
+    uniform sampler2D uDepthTex;
+    uniform float uNear;
+    uniform float uFar;
+    float DecodeFloatRGBA( vec4 rgba ) {
+      return dot( rgba, vec4(1.0, 255.0, 255.0*255.0, 255.0*255.0*255.0) );
+    }
+    void main() {
+      float xFactor = uv.x;
+      float yFactor = uv.y;
+      float z = DecodeFloatRGBA(texture2D(uDepthTex, vec2(xFactor, 1.0-yFactor)));
 
-    float x = fract(originalZ);
-    originalZ -= x;
-    originalZ /= 255.0;
-    float y = fract(originalZ);
-    originalZ -= y;
-    originalZ /= 255.0;
-    float z = fract(originalZ);
-    /* originalZ -= y;
-    originalZ /= 255.0;
-    float w = fract(originalZ);
-    float w = 0.0; */
-    if (x == 0.0 && y == 0.0 && z == 0.0 /*&& w == 0.0*/) {
-      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-    } else {
-      gl_FragColor = vec4(x, y, z, 0.0);
+      vec2 coords = vec2(xFactor * 2. - 1., -yFactor * 2. + 1.);
+      vec3 origin = (uMatrixWorld * uProjectionMatrixInverse * vec4(coords.x, coords.y, ( uNear + uFar ) / ( uNear - uFar ), 1.0)).xyz;
+      vec3 direction = uDirection;
+
+      vec3 p = position + origin + direction * z;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.);
+    }
+  `;
+  const depthFsh = `
+    vec4 EncodeFloatRGBA( float v ) {
+      vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
+      enc = fract(enc);
+      // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
+      return enc;
+    }
+    // const float infinity = 1./0.;
+    void main() {
+      gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMatrixWorld: {
+        type: 'm4',
+        value: new THREE.Matrix4(),
+      },
+      uProjectionMatrixInverse: {
+        type: 'm4',
+        value: new THREE.Matrix4(),
+      },
+      uDirection: {
+        type: 'v3',
+        value: new THREE.Vector3(),
+      },
+      uNear: {
+        type: 'f',
+        value: 0,
+      },
+      uFar: {
+        type: 'f',
+        value: 1,
+      },
+      uDepthTex: {
+        type: 't',
+        value: null,
+      },
+    },
+    vertexShader: depthVsh,
+    fragmentShader: depthFsh,
+    // transparent: true,
+  });
+})();
+const gpuParticlesMesh = (() => {
+  const resolution = 64;
+  const resolutionP1 = resolution + 1;
+  const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
+  const numVecs = cubeGeometry.attributes.position.array.length/3;
+  const uvs = new Float32Array(numVecs*2*resolutionP1*resolutionP1);
+
+  let i = 0;
+  for (let x = 0; x < resolution; x++) {
+    for (let y = 0; y < resolution; y++) {
+      const xFactor = x / resolution;
+      const yFactor = y / resolution;
+      /* const px = Math.floor(xFactor * colorTarget.width);
+      const py = Math.floor((1-yFactor) * colorTarget.height);
+      const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
+      
+      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
+      localVector.copy(localRaycaster.ray.origin)
+        .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z)); */
+      positions.set(cubeGeometry.attributes.position.array, i*cubeGeometry.attributes.position.array.length);
+      for (let j = 0; j < numVecs; j++) {
+        /* if (j === 10) {
+          console.log('set uv', i*numVecs*2 + j*2, xFactor, yFactor);
+        } */
+        uvs[i*numVecs*2 + j*2] = xFactor;
+        uvs[i*numVecs*2 + j*2 + 1] = yFactor;
+      }
+      i++;
     }
   }
-`;
-const depthMaterial = new THREE.ShaderMaterial({
-  uniforms: {
-    /* uCurrentParcel: {
-      type: 'v4',
-      value: new THREE.Vector4(),
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  const material = gpuParticlesMeshMaterial;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  mesh.update = renderTarget => {
+    cursorCamera.position.copy(camera.position);
+    cursorCamera.quaternion.copy(camera.quaternion);
+    cursorCamera.updateMatrixWorld();
+    _renderDepth(colorTarget, cursorCamera);
+
+    gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(cursorCamera.matrixWorld);
+    gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(cursorCamera.projectionMatrixInverse);
+    gpuParticlesMeshMaterial.uniforms.uDirection.value.set(0, 0, -1).transformDirection(cursorCamera.matrixWorld);
+    gpuParticlesMeshMaterial.uniforms.uNear.value = cursorCamera.near;
+    gpuParticlesMeshMaterial.uniforms.uFar.value = cursorCamera.far;
+    gpuParticlesMeshMaterial.uniforms.uDepthTex.value = colorTarget.texture;
+  };
+  return mesh;
+})();
+container.add(gpuParticlesMesh);
+
+const depthMaterial = (() => {
+  const depthVsh = `
+    // uniform float uAnimation;
+    // attribute float typex;
+    // varying vec3 vPosition;
+    void main() {
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+    }
+  `;
+  const depthFsh = `
+    vec4 EncodeFloatRGBA( float v ) {
+      vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
+      enc = fract(enc);
+      // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
+      return enc;
+    }
+    /* float DecodeFloatRGBA( vec4 rgba ) {
+      return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
+    } */
+    // const float infinity = 1./0.;
+    void main() {
+      float originalZ = ${cursorCamera.near.toFixed(8)} + gl_FragCoord.z / gl_FragCoord.w * ${(cursorCamera.far - cursorCamera.near).toFixed(8)};
+      // gl_FragColor = EncodeFloatRGBA(originalZ);
+
+      float x = fract(originalZ);
+      originalZ -= x;
+      originalZ /= 255.0;
+      float y = fract(originalZ);
+      originalZ -= y;
+      originalZ /= 255.0;
+      float z = fract(originalZ);
+      /* originalZ -= y;
+      originalZ /= 255.0;
+      float w = fract(originalZ);
+      float w = 0.0; */
+      if (x == 0.0 && y == 0.0 && z == 0.0 /*&& w == 0.0*/) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+      } else {
+        gl_FragColor = vec4(x, y, z, 0.0);
+      }
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      /* uCurrentParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uHoverParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uSelectedParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uSelectedColor: {
+        type: 'c',
+        value: new THREE.Color().setHex(0x29b6f6),
+      },
+      uAnimation: {
+        type: 'f',
+        value: 1,
+      }, */
     },
-    uHoverParcel: {
-      type: 'v4',
-      value: new THREE.Vector4(),
-    },
-    uSelectedParcel: {
-      type: 'v4',
-      value: new THREE.Vector4(),
-    },
-    uSelectedColor: {
-      type: 'c',
-      value: new THREE.Color().setHex(0x29b6f6),
-    },
-    uAnimation: {
-      type: 'f',
-      value: 1,
-    }, */
-  },
-  vertexShader: depthVsh,
-  fragmentShader: depthFsh,
-  // transparent: true,
-});
+    vertexShader: depthVsh,
+    fragmentShader: depthFsh,
+    // transparent: true,
+  });
+})();
 
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
@@ -1275,53 +1413,50 @@ function DecodeFloatRGBA(rgba, i) {
 window.addEventListener('mousemove', e => {
   const rect = renderer.domElement.getBoundingClientRect();
 
-  renderer.readRenderTargetPixels(colorTarget, colorTarget.width/2, colorTarget.height/2, 1, 1, pbuf, 0);
-  const z = DecodeFloatRGBA(pbuf, 0);
-
   const xFactor = (e.clientX - rect.left) / rect.width;
   const yFactor = -(e.clientY - rect.top) / rect.height;
   if (xFactor >= 0 && xFactor <= 1 && -yFactor >= 0 && -yFactor <= 1) {
     localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
+    raycastCamera.position.copy(localRaycaster.ray.origin);
+    raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
+    // console.log('read', z, cubeMesh.position.y, pbuf.join(','));
+    _renderDepth(raycastTarget, raycastCamera);
+
+    renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, pbuf, 0);
+    const z = DecodeFloatRGBA(pbuf, 0);
     cubeMesh.position.copy(localRaycaster.ray.origin)
       .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-    cursorCamera.position.copy(localRaycaster.ray.origin);
-    cursorCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
-    // console.log('read', z, cubeMesh.position.y, pbuf.join(','));
-    _renderDepth();
   }
 });
 
-const capturePointCloudButton = document.getElementById('capture-point-cloud-button');
+/* const capturePointCloudButton = document.getElementById('capture-point-cloud-button');
 capturePointCloudButton.addEventListener('click', () => {
   particlesMesh.update(colorTarget);
 });
 const captureMeshButton = document.getElementById('capture-mesh-button');
 captureMeshButton.addEventListener('click', () => {
   
-});
+}); */
 
 setInterval(() => {
-  particlesMesh.update(colorTarget);
+  gpuParticlesMesh.update(colorTarget);
 }, 100);
 
-const _renderDepth = () => {
+const _renderDepth = (target, camera) => {
   colorMesh.visible = false;
   cubeMesh.visible = false;
-  particlesMesh.visible = false;
+  // particlesMesh.visible = false;
+  gpuParticlesMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
-  renderer.setRenderTarget(colorTarget);
-  renderer.render(scene, cursorCamera);
-  scene.overrideMaterial = null;
-
-  /* renderer.setRenderTarget(depthTarget);
-  // scene.overrideMaterial = depthMaterial;
+  renderer.setRenderTarget(target);
   renderer.render(scene, camera);
-  scene.overrideMaterial = null; */
+  scene.overrideMaterial = null;
 
   colorMesh.visible = true;
   cubeMesh.visible = true;
-  particlesMesh.visible = true;
+  // particlesMesh.visible = true;
+  gpuParticlesMesh.visible = true;
 
   renderer.setRenderTarget(null);
 };
