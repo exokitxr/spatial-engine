@@ -1145,7 +1145,7 @@ const cubeMesh = (() => {
 container.add(cubeMesh);
 
 const particlesMesh = (() => {
-  const resolution = 16;
+  const resolution = 64;
   const resolutionP1 = resolution + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
@@ -1167,13 +1167,12 @@ const particlesMesh = (() => {
     let i = 0;
     for (let x = 0; x < resolution; x++) {
       for (let y = 0; y < resolution; y++) {
-        console.log(i);
+        // console.log(i);
         const xFactor = x / resolution;
         const yFactor = y / resolution;
         const px = Math.floor(xFactor * colorTarget.width);
         const py = Math.floor((1-yFactor) * colorTarget.height);
-        const slice = pbuf.slice((px * 4) + (py * colorTarget.width * 4));
-        const z = DecodeFloatRGBA(slice);
+        const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
         
         localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
         localVector.copy(localRaycaster.ray.origin)
@@ -1208,6 +1207,7 @@ const depthFsh = `
   /* float DecodeFloatRGBA( vec4 rgba ) {
     return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
   } */
+  // const float infinity = 1./0.;
   void main() {
     float originalZ = ${cursorCamera.near.toFixed(8)} + gl_FragCoord.z / gl_FragCoord.w * ${(cursorCamera.far - cursorCamera.near).toFixed(8)};
     // gl_FragColor = EncodeFloatRGBA(originalZ);
@@ -1221,9 +1221,13 @@ const depthFsh = `
     float z = fract(originalZ);
     /* originalZ -= y;
     originalZ /= 255.0;
-    float w = fract(originalZ); */
-    float w = 0.0;
-    gl_FragColor = vec4(x, y, z, w);
+    float w = fract(originalZ);
+    float w = 0.0; */
+    if (x == 0.0 && y == 0.0 && z == 0.0 /*&& w == 0.0*/) {
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    } else {
+      gl_FragColor = vec4(x, y, z, 0.0);
+    }
   }
 `;
 const depthMaterial = new THREE.ShaderMaterial({
@@ -1255,16 +1259,16 @@ const depthMaterial = new THREE.ShaderMaterial({
 });
 
 const pbuf = new Float32Array(4);
-function DecodeFloatRGBA(rgba) {
-  if (rgba[0] === 0 && rgba[1] === 0 && rgba[2] === 0 /*&& rgba[3] === 0*/) {
+function DecodeFloatRGBA(rgba, i) {
+  /* if (rgba[i] === 0 && rgba[i+1] === 0 && rgba[i+2] === 0 && rgba[3] === 0) {
     return Infinity;
-  } else {
-    return rgba[0] +
-      rgba[1] * 255.0 +
-      rgba[2] * 255.0*255.0 //+
-      // rgba[3] * 255.0*255.0*255.0;
+  } else { */
+    return rgba[i] +
+      rgba[i+1] * 255.0 +
+      rgba[i+2] * 255.0*255.0 +
+      rgba[i+3] * 255.0*255.0*255.0;
     // return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
-  }
+  // }
 }
 window.addEventListener('mousemove', e => {
   const rect = renderer.domElement.getBoundingClientRect();
@@ -1273,7 +1277,7 @@ window.addEventListener('mousemove', e => {
   const ey = 1-((e.clientY - top) / height); */
 
   renderer.readRenderTargetPixels(colorTarget, colorTarget.width/2, colorTarget.height/2, 1, 1, pbuf, 0);
-  const z = DecodeFloatRGBA(pbuf);
+  const z = DecodeFloatRGBA(pbuf, 0);
 
   const xFactor = (e.clientX - rect.left) / rect.width;
   const yFactor = -(e.clientY - rect.top) / rect.height;
