@@ -1216,7 +1216,7 @@ const raycastTarget = new THREE.WebGLRenderTarget(1, 1, {
   stencilBuffer: false,
 });
 
-const cubeMesh = (() => {
+const raycastMesh = (() => {
   const geometry = new THREE.BoxBufferGeometry(0.05, 0.05, 0.05);
   const material = new THREE.MeshPhongMaterial({
     color: 0xFF0000,
@@ -1225,7 +1225,7 @@ const cubeMesh = (() => {
   mesh.frustumCulled = false;
   return mesh;
 })();
-container.add(cubeMesh);
+container.add(raycastMesh);
 
 const particlesMesh = (() => {
   const resolutionP1 = resolution + 1;
@@ -1769,9 +1769,9 @@ window.addEventListener('mousemove', e => {
 
     renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, pbuf, 0);
     const z = DecodeFloatRGBA(pbuf, 0);
-    cubeMesh.position.copy(localRaycaster.ray.origin)
+    raycastMesh.position.copy(localRaycaster.ray.origin)
       .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-    // console.log('read', z, cubeMesh.position.y, pbuf.join(','));
+    // console.log('read', z, raycastMesh.position.y, pbuf.join(','));
   }
 });
 
@@ -1788,8 +1788,8 @@ setInterval(() => {
 const _renderDepth = (target, camera) => {
   const oldColorMeshVisible = colorMesh.visible;
   colorMesh.visible = false;
-  const oldCubeMeshVisible = cubeMesh.visible;
-  cubeMesh.visible = false;
+  const oldRaycastMeshVisible = raycastMesh.visible;
+  raycastMesh.visible = false;
   const oldParticlesMeshVisible = particlesMesh.visible;
   particlesMesh.visible = false;
   const oldGpuParticlesMeshVisible = gpuParticlesMesh.visible;
@@ -1807,7 +1807,7 @@ const _renderDepth = (target, camera) => {
   renderer.setClearColor(localColor.set(0, 0, 0), 0);
 
   colorMesh.visible = oldColorMeshVisible;
-  cubeMesh.visible = oldCubeMeshVisible;
+  raycastMesh.visible = oldRaycastMeshVisible;
   particlesMesh.visible = oldParticlesMeshVisible;
   gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
   voxelsMesh.visible = oldVoxelsMeshVisible;
