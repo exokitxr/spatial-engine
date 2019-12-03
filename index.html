@@ -1135,6 +1135,7 @@ const _makeRenderTargetPlaneMesh = map => {
 };
 
 const size = 512;
+const resolution = 128;
 const colorTarget = new THREE.WebGLRenderTarget(size, size, {
   minFilter: THREE.LinearFilter,
   magFilter: THREE.NearestFilter,
@@ -1170,7 +1171,6 @@ const cubeMesh = (() => {
 container.add(cubeMesh);
 
 const particlesMesh = (() => {
-  const resolution = 64;
   const resolutionP1 = resolution + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
@@ -1287,7 +1287,6 @@ const gpuParticlesMeshMaterial = (() => {
   });
 })();
 const gpuParticlesMesh = (() => {
-  const resolution = 64;
   const resolutionP1 = resolution + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
