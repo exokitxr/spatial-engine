@@ -1496,7 +1496,7 @@ const voxelsMaterial = (() => {
     varying float vPotential;
     void main() {
       // gl_FragColor = vec4(vPosition * vPotential, (2.0-vPosition.y) * 0.05);
-      gl_FragColor = vec4(vec3(1.0), vPotential * 0.1);
+      gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), vPotential);
     }
   `;
   return new THREE.ShaderMaterial({
