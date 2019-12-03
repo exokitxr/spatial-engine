@@ -854,10 +854,12 @@ const scene = new THREE.Scene();
 const container = new THREE.Object3D();
 scene.add(container);
 
-const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.y = 1.5;
 camera.position.z = 0.5;
 // camera.lookAt(new THREE.Vector3(0, 1, 0))
+
+const cursorCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
 
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
@@ -1168,9 +1170,10 @@ const depthFsh = `
     originalZ -= y;
     originalZ /= 255.0;
     float z = fract(originalZ);
-    originalZ -= y;
+    /* originalZ -= y;
     originalZ /= 255.0;
-    float w = fract(originalZ);
+    float w = fract(originalZ); */
+    float w = 0.0;
     gl_FragColor = vec4(x, y, z, w);
   }
 `;
@@ -1204,21 +1207,24 @@ const depthMaterial = new THREE.ShaderMaterial({
 
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba) {
-  return camera.near +
-    rgba[0] +
-    rgba[1] * 255.0 +
-    rgba[2] * 255.0*255.0 //+
-    // rgba[3] * 255.0*255.0*255.0;
-  // return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
+  if (rgba[0] === 0 && rgba[1] === 0 && rgba[2] === 0 /*&& rgba[3] === 0*/) {
+    return Infinity;
+  } else {
+    return cursorCamera.near +
+      rgba[0] +
+      rgba[1] * 255.0 +
+      rgba[2] * 255.0*255.0 //+
+      // rgba[3] * 255.0*255.0*255.0;
+    // return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
+  }
 }
 window.addEventListener('mousemove', e => {
   const rect = renderer.domElement.getBoundingClientRect();
-  const {left, top, width, height} = rect;
+  /* const {left, top, width, height} = rect;
   const ex = (e.clientX - left) / width;
-  const ey = 1-((e.clientY - top) / height);
-  // console.log('got x y', ex, ey);
+  const ey = 1-((e.clientY - top) / height); */
 
-  renderer.readRenderTargetPixels(colorTarget, ex * colorTarget.width, ey * colorTarget.height, 1, 1, pbuf, 0);
+  renderer.readRenderTargetPixels(colorTarget, colorTarget.width/2, colorTarget.height/2, 1, 1, pbuf, 0);
   const z = DecodeFloatRGBA(pbuf);
 
   const xFactor = (e.clientX - rect.left) / rect.width;
@@ -1226,7 +1232,9 @@ window.addEventListener('mousemove', e => {
   localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
   cubeMesh.position.copy(localRaycaster.ray.origin)
     .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-  console.log('read', z, ex, ey, cubeMesh.position.y, pbuf.join(','));
+  cursorCamera.position.copy(localRaycaster.ray.origin);
+  cursorCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
+  console.log('read', z, cubeMesh.position.y, pbuf.join(','));
 });
 
 function animate(timestamp, frame, referenceSpace) {
@@ -1236,7 +1244,7 @@ function animate(timestamp, frame, referenceSpace) {
 
   scene.overrideMaterial = depthMaterial;
   renderer.setRenderTarget(colorTarget);
-  renderer.render(scene, camera);
+  renderer.render(scene, cursorCamera);
   scene.overrideMaterial = null;
 
   /* renderer.setRenderTarget(depthTarget);
