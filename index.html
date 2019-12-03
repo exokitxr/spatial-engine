@@ -1210,11 +1210,6 @@ const colorTarget = new THREE.WebGLRenderTarget(size, size, {
   depthBuffer: true,
   stencilBuffer: false,
 });
-// colorTarget.depthTexture = new THREE.DepthTexture(colorTarget.width, colorTarget.height);
-const colorMesh = _makeRenderTargetPlaneMesh(colorTarget.texture);
-colorMesh.position.set(1, 1, 0);
-// container.add(colorMesh);
-// window.depthTexture = colorTarget.depthTexture;
 
 const raycastTarget = new THREE.WebGLRenderTarget(1, 1, {
   minFilter: THREE.LinearFilter,
@@ -1640,21 +1635,50 @@ const voxelsMesh = (() => {
 })();
 container.add(voxelsMesh);
 
+const cameraTexSize = 2048;
+const cameraTexTriangleSize = 128;
+const cameraTexSquares = cameraTexSize/cameraTexTriangleSize*2;
+const cameraTarget = new THREE.WebGLRenderTarget(size, size, {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.NearestFilter,
+  format: THREE.RGBAFormat,
+  // type: THREE.FloatType,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+const marchCubesRenderTarget = new THREE.WebGLRenderTarget(cameraTexSize, cameraTexSize, {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.NearestFilter,
+  format: THREE.RGBAFormat,
+  // type: THREE.FloatType,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+
 const marchCubesMaterial = new THREE.ShaderMaterial({
-  uniforms: {},
+  uniforms: {
+    uCameraTex: {
+      type: 't',
+      value: cameraTarget.texture,
+    },
+  },
   vertexShader: `\
     attribute vec3 barycentric;
-    varying vec3 vPosition;
+    // varying vec3 vPosition;
+    varying vec3 vScreenPosition;
     varying vec3 vBC;
     void main() {
       vBC = barycentric;
       vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
-      vPosition = modelViewPosition.xyz;
+      // vPosition = modelViewPosition.xyz;
       gl_Position = projectionMatrix * modelViewPosition;
+      vScreenPosition = gl_Position.xyz/gl_Position.w;
     }
   `,
   fragmentShader: `\
-    varying vec3 vPosition;
+    uniform sampler2D uCameraTex;
+    // varying vec3 vPosition;
+    varying vec3 vScreenPosition;
     varying vec3 vBC;
 
     vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
@@ -1667,12 +1691,56 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
     }
 
     void main() {
-      float barycentricFactor = (0.2 + (1.0 - edgeFactor()) * 0.8);
+      /* float barycentricFactor = (0.2 + (1.0 - edgeFactor()) * 0.8);
       vec3 xTangent = dFdx( vPosition );
       vec3 yTangent = dFdy( vPosition );
       vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
       float lightFactor = dot(faceNormal, lightDirection);
-      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
+      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor); */
+
+      vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+      gl_FragColor = texture2D(uCameraTex, uv);
+      gl_FragColor.a = 1.0;
+      // gl_FragColor = vec4((vScreenPosition.x)/2.0+0.5, 0.0, (vScreenPosition.y)/2.0+0.5, 1.0);
+
+      /* if (gl_FragColor.x >= 1.0 || gl_FragColor.z >= 1.0 || gl_FragColor.x <= 0.0 || gl_FragColor.z <= 0.0) {
+        gl_FragColor = vec4(1.0);
+      } */
+    }
+  `,
+  side: THREE.BackSide,
+  /* polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -4, */
+  transparent: true,
+  extensions: {
+    derivatives: true,
+  },
+});
+const marchCubesRenderMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uCameraTex: {
+      type: 't',
+      value: cameraTarget.texture,
+    },
+  },
+  vertexShader: `\
+    varying vec3 vScreenPosition;
+    void main() {
+      gl_Position = vec4(uv-1.0, 0.0, 1.0);
+      vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+      vec4 projectionPosition = projectionMatrix * modelViewPosition;
+      vScreenPosition = projectionPosition.xyz/projectionPosition.w;
+    }
+  `,
+  fragmentShader: `\
+    uniform sampler2D uCameraTex;
+    varying vec3 vScreenPosition;
+
+    void main() {
+      vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+      gl_FragColor = texture2D(uCameraTex, uv);
+      gl_FragColor.a = 1.0;
     }
   `,
   side: THREE.BackSide,
@@ -1707,6 +1775,7 @@ const marchCubesMesh = (() => {
 
           const positions = new Float32Array(indexArray.length*3);
           const barycentrics = new Float32Array(indexArray.length*3);
+          const uvs = new Float32Array(indexArray.length*2);
           for (let i = 0; i < indexArray.length; i += 3) {
             const ai = indexArray[i];
             const bi = indexArray[i+1];
@@ -1736,9 +1805,32 @@ const marchCubesMesh = (() => {
             barycentrics[baseIndex+6] = 0;
             barycentrics[baseIndex+7] = 0;
             barycentrics[baseIndex+8] = 1;
+
+            const baseI = i/3;
+            const baseIndex2 = i*2;
+            if ((baseI%2) === 0) {
+              const cx = (baseI/2)%(cameraTexSquares);
+              const cy = Math.floor(baseI/2/(cameraTexSquares));
+              uvs[baseIndex2] = cx*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+1] = cy*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+2] = cx*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+3] = (cy+1)*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+4] = (cx+1)*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+5] = (cy+1)*cameraTexTriangleSize/cameraTexSize;
+            } else {
+              const cx = ((baseI-1)/2)%(cameraTexSquares);
+              const cy = Math.floor((baseI-1)/2/(cameraTexSquares));
+              uvs[baseIndex2] = cx*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+1] = cy*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+2] = (cx+1)*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+3] = (cy+1)*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+4] = (cx+1)*cameraTexTriangleSize/cameraTexSize;
+              uvs[baseIndex2+5] = cy*cameraTexTriangleSize/cameraTexSize;
+            }
           }
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
           geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 3));
+          geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
 
           mesh.visible = meshingSwitchWrap.classList.contains('on');
         } else {
@@ -1752,6 +1844,20 @@ const marchCubesMesh = (() => {
   return mesh;
 })();
 container.add(marchCubesMesh);
+const marchCubesRenderMesh = (() => {
+  const {geometry} = marchCubesMesh;
+  const material = marchCubesRenderMaterial;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.scale.copy(marchCubesMesh.scale);
+  mesh.frustumCulled = false;
+  return mesh;
+})();
+const marchCubesRenderScene = new THREE.Scene();
+marchCubesRenderScene.add(marchCubesRenderMesh);
+
+const testMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
+testMesh.position.set(1, 1, 0);
+scene.add(testMesh);
 
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
@@ -1795,8 +1901,8 @@ setInterval(() => {
 }, 100);
 
 const _renderDepth = (target, camera) => {
-  const oldColorMeshVisible = colorMesh.visible;
-  colorMesh.visible = false;
+  // const oldColorMeshVisible = colorMesh.visible;
+  // colorMesh.visible = false;
   const oldRaycastMeshVisible = raycastMesh.visible;
   raycastMesh.visible = false;
   const oldParticlesMeshVisible = particlesMesh.visible;
@@ -1807,6 +1913,8 @@ const _renderDepth = (target, camera) => {
   voxelsMesh.visible = false;
   const oldMarchCubesMeshVisible = marchCubesMesh.visible;
   marchCubesMesh.visible = false;
+  const oldTestMeshVisible = testMesh.visible;
+  testMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
   renderer.setRenderTarget(target);
@@ -1815,16 +1923,29 @@ const _renderDepth = (target, camera) => {
   scene.overrideMaterial = null;
   renderer.setClearColor(localColor.set(0, 0, 0), 0);
 
-  colorMesh.visible = oldColorMeshVisible;
+  // colorMesh.visible = oldColorMeshVisible;
   raycastMesh.visible = oldRaycastMeshVisible;
   particlesMesh.visible = oldParticlesMeshVisible;
   gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
   voxelsMesh.visible = oldVoxelsMeshVisible;
   marchCubesMesh.visible = oldMarchCubesMeshVisible;
+  testMesh.visible = oldTestMeshVisible;
 
   renderer.setRenderTarget(null);
 };
 function animate(timestamp, frame, referenceSpace) {
+  const oldMarchCubesMeshVisible = marchCubesMesh.visible;
+  marchCubesMesh.visible = false;
+
+  renderer.setRenderTarget(cameraTarget);
+  renderer.render(scene, camera);
+
+  marchCubesMesh.visible = oldMarchCubesMeshVisible;
+
+  renderer.setRenderTarget(marchCubesRenderTarget);
+  renderer.render(marchCubesRenderScene, camera);
+
+  renderer.setRenderTarget(null);
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
