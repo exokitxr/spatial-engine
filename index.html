@@ -831,6 +831,31 @@ import './Reflector.js';
 import ModelLoader from 'https://model-loader.exokit.org/model-loader.js';
 import avatarModels from 'https://avatar-models.exokit.org/avatar-models.js';
 
+const worker = (() => {
+  let cbs = [];
+  const worker = new Worker('mc-worker.js');
+  worker.onmessage = e => {
+    const {data} = e;
+    const {error, result} = data;
+    cbs.shift()(error, result);
+  };
+  worker.onerror = err => {
+    console.warn(err);
+  };
+  worker.request = (req, transfers) => new Promise((accept, reject) => {
+    worker.postMessage(req, transfers);
+
+    cbs.push((err, result) => {
+      if (!err) {
+        accept(result);
+      } else {
+        reject(err);
+      }
+    });
+  });
+  return worker;
+})();
+
 const parcelSize = 16;
 
 const floorPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0));
@@ -1430,8 +1455,8 @@ const width = 20;
 const height = 20;
 const depth = 20;
 const voxelSize = 0.1;
-const potentials = new Uint8Array(width*height*depth);
-const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 1, THREE.LuminanceFormat, THREE.UnsignedByteType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+const potentials = new Float32Array(width*height*depth);
+const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
 const voxelsMaterial = (() => {
   const voxelsVsh = `
     attribute vec3 pos;
@@ -1442,7 +1467,7 @@ const voxelsMaterial = (() => {
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
       vPosition = position;
 
-      float ux = (pos.x + pos.y*${width.toFixed(8)} + pos.z*${(width*depth).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
+      float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 uv = vec2(ux, 0.5);
       vPotential = texture2D(uPotentialsTex, uv).r;
     }
@@ -1452,7 +1477,7 @@ const voxelsMaterial = (() => {
     varying float vPotential;
     void main() {
       // gl_FragColor = vec4(vPosition * vPotential, (2.0-vPosition.y) * 0.05);
-      gl_FragColor = vec4(vec3(1.0), vPotential);
+      gl_FragColor = vec4(vec3(1.0), vPotential * 0.1);
     }
   `;
   return new THREE.ShaderMaterial({
@@ -1546,9 +1571,9 @@ const voxelsMesh = (() => {
         ) {
           potentials[
             Math.floor(localVector.x/voxelSize) +
-            Math.floor(localVector.y/voxelSize)*width +
-            Math.floor(localVector.z/voxelSize)*width*depth
-          ] = 64;
+            Math.floor(localVector.y/voxelSize)*width*depth +
+            Math.floor(localVector.z/voxelSize)*width
+          ] = 1;
         }
         i++;
       }
@@ -1556,19 +1581,49 @@ const voxelsMesh = (() => {
     potentialsTexture.needsUpdate = true;
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   };
-  /* mesh.update = () => {
-    cursorCamera.position.copy(camera.position);
-    cursorCamera.quaternion.copy(camera.quaternion);
-    _renderDepth(colorTarget, cursorCamera);
-
-    const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
-    renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
-
-    eometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  }; */
   return mesh;
 })();
 container.add(voxelsMesh);
+
+const marchCubesMesh = (() => {
+  const geometry = new THREE.BufferGeometry();
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xff7043,
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: 0.3,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.scale.set(1, 1, 1).multiplyScalar(voxelSize);
+  mesh.frustumCulled = false;
+  mesh.visible = false;
+  let running = false;
+  mesh.update = () => {
+    if (!running) {
+      running = true;
+      worker.request({
+        method: 'march',
+        dims: Float32Array.from([width, height, depth]),
+        potential: potentials,
+        shift: Float32Array.from([0, 0, 0]),
+        // scale: Float32Array.from([voxelSize, voxelSize, voxelSize]),
+      }).then(res => {
+        window.res = res;
+        if (res.positions.length > 0) {
+          geometry.setAttribute('position', new THREE.BufferAttribute(res.positions, 3));
+          geometry.setIndex(new THREE.BufferAttribute(res.faces, 1));
+          mesh.visible = true;
+        } else {
+          mesh.visible = false;
+        }
+
+        running = false;
+      });
+    }
+  };
+  return mesh;
+})();
+container.add(marchCubesMesh);
 
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
@@ -1608,6 +1663,7 @@ setInterval(() => {
     particlesMesh.update();
   }
   voxelsMesh.update();
+  marchCubesMesh.update();
 }, 100);
 
 const _renderDepth = (target, camera) => {
@@ -1616,6 +1672,7 @@ const _renderDepth = (target, camera) => {
   particlesMesh.visible = false;
   gpuParticlesMesh.visible = false;
   voxelsMesh.visible = false;
+  marchCubesMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
   renderer.setRenderTarget(target);
@@ -1630,6 +1687,7 @@ const _renderDepth = (target, camera) => {
   particlesMesh.visible = !enabled;
   gpuParticlesMesh.visible = enabled;
   voxelsMesh.visible = true;
+  marchCubesMesh.visible = true;
 
   renderer.setRenderTarget(null);
 };
