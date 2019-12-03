@@ -1129,7 +1129,7 @@ const colorTarget = new THREE.WebGLRenderTarget(size, size, {
   depthBuffer: true,
   stencilBuffer: false,
 });
-colorTarget.depthTexture = new THREE.DepthTexture(colorTarget.width, colorTarget.height);
+// colorTarget.depthTexture = new THREE.DepthTexture(colorTarget.width, colorTarget.height);
 const colorMesh = _makeRenderTargetPlaneMesh(colorTarget.texture);
 colorMesh.position.set(1, 1, 0);
 // container.add(colorMesh);
