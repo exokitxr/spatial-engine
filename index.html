@@ -1300,6 +1300,10 @@ captureMeshButton.addEventListener('click', () => {
   
 });
 
+setInterval(() => {
+  particlesMesh.update(colorTarget);
+}, 100);
+
 const _renderDepth = () => {
   colorMesh.visible = false;
   cubeMesh.visible = false;
