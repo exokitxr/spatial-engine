@@ -1476,6 +1476,7 @@ const depth = 20;
 const voxelSize = 0.1;
 const potentials = new Float32Array(width*height*depth);
 const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+const workingPotentials = new Float32Array(width*height*depth);
 const voxelsMaterial = (() => {
   const voxelsVsh = `
     attribute vec3 pos;
@@ -1533,9 +1534,10 @@ const voxelsMaterial = (() => {
   });
 })();
 
+const _getPotentialIndex = (x, y, z) => x + y*width*depth + z*width;
 const voxelsMesh = (() => {
   const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
-    .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
+    // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
     .toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
   const poss = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
@@ -1568,7 +1570,7 @@ const voxelsMesh = (() => {
     const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
     renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
 
-    potentials.fill(0);
+    workingPotentials.fill(-0.25);
     let i = 0;
     for (let x = 0; x < resolution; x++) {
       for (let y = 0; y < resolution; y++) {
@@ -1588,13 +1590,39 @@ const voxelsMesh = (() => {
           localVector.y >= 0 && localVector.y <= height * voxelSize &&
           localVector.z >= 0 && localVector.z <= depth * voxelSize
         ) {
-          potentials[
-            Math.floor(localVector.x/voxelSize) +
-            Math.floor(localVector.y/voxelSize)*width*depth +
-            Math.floor(localVector.z/voxelSize)*width
-          ] = 1;
+          workingPotentials[_getPotentialIndex(
+            Math.floor(localVector.x/voxelSize + 0.5),
+            Math.floor(localVector.y/voxelSize + 0.5),
+            Math.floor(localVector.z/voxelSize + 0.5)
+          )] = 1;
         }
         i++;
+      }
+    }
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        for (let z = 0; z < depth; z++) {
+          let sum = 0;
+          let num = 0;
+          for (let dx = -1; dx <= 1; dx++) {
+            const ax = x + dx;
+            if (ax >= 0 && ax < width) {
+              for (let dy = -1; dy <= 1; dy++) {
+                const ay = y + dy;
+                if (ay >= 0 && ay < height) {
+                  for (let dz = -1; dz <= 1; dz++) {
+                    const az = z + dz;
+                    if (az >= 0 && az < depth) {
+                      sum += workingPotentials[_getPotentialIndex(ax, ay, az)];
+                      num++;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          potentials[_getPotentialIndex(x, y, z)] = sum/num;
+        }
       }
     }
     potentialsTexture.needsUpdate = true;
