@@ -1182,9 +1182,9 @@ const particlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
-    /* cursorCamera.position.copy(camera.position);
+    cursorCamera.position.copy(camera.position);
     cursorCamera.quaternion.copy(camera.quaternion);
-    _renderDepth(colorTarget, cursorCamera); */
+    _renderDepth(colorTarget, cursorCamera);
 
     const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
     renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
