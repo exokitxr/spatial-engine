@@ -816,6 +816,14 @@ header > .login-form.phase-3 > .phaseless-content
           <div class=switch id=gpu-switch></div>
           GPU
         </label>
+        <label class="switch-wrap on" id=voxels-switch-wrap>
+          <div class=switch id=voxels-switch></div>
+          Voxelization
+        </label>
+        <label class="switch-wrap on" id=meshing-switch-wrap>
+          <div class=switch id=meshing-switch></div>
+          Meshing
+        </label>
       </div>
     </div>
     <script type=module>
@@ -1140,6 +1148,17 @@ gpuSwitchWrap.addEventListener('click', () => {
   const enabled = gpuSwitchWrap.classList.contains('on');
   particlesMesh.visible = !enabled;
   gpuParticlesMesh.visible = enabled;
+});
+const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
+voxelsSwitchWrap.addEventListener('click', () => {
+  voxelsSwitchWrap.classList.toggle('on');
+  const enabled = voxelsSwitchWrap.classList.contains('on');
+  voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
+});
+const meshingSwitchWrap = document.getElementById('meshing-switch-wrap');
+meshingSwitchWrap.addEventListener('click', () => {
+  meshingSwitchWrap.classList.toggle('on');
+  marchCubesMesh.visible = meshingSwitchWrap.classList.contains('on');
 });
 
 const renderer = new THREE.WebGLRenderer({
