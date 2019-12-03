@@ -1635,10 +1635,8 @@ const voxelsMesh = (() => {
 })();
 container.add(voxelsMesh);
 
-const cameraTexSize = 2048;
-const cameraTexTriangleSize = 128;
-const cameraTexSquares = cameraTexSize/cameraTexTriangleSize*2;
-const cameraTarget = new THREE.WebGLRenderTarget(size, size, {
+const cameraTexSize = 1024;
+const cameraTarget = new THREE.WebGLRenderTarget(cameraTexSize, cameraTexSize, {
   minFilter: THREE.LinearFilter,
   magFilter: THREE.NearestFilter,
   format: THREE.RGBAFormat,
@@ -1646,7 +1644,10 @@ const cameraTarget = new THREE.WebGLRenderTarget(size, size, {
   depthBuffer: true,
   stencilBuffer: false,
 });
-const marchCubesRenderTarget = new THREE.WebGLRenderTarget(cameraTexSize, cameraTexSize, {
+const marchCubesTexSize = 4096;
+const marchCubesTexTriangleSize = 128;
+const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
+const marchCubesRenderTarget = new THREE.WebGLRenderTarget(marchCubesTexSize, marchCubesTexSize, {
   minFilter: THREE.LinearFilter,
   magFilter: THREE.NearestFilter,
   format: THREE.RGBAFormat,
@@ -1659,7 +1660,7 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
   uniforms: {
     uCameraTex: {
       type: 't',
-      value: cameraTarget.texture,
+      value: marchCubesRenderTarget.texture,
     },
   },
   vertexShader: `\
@@ -1667,12 +1668,14 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
     // varying vec3 vPosition;
     varying vec3 vScreenPosition;
     varying vec3 vBC;
+    varying vec2 vUv;
     void main() {
       vBC = barycentric;
       vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
       // vPosition = modelViewPosition.xyz;
       gl_Position = projectionMatrix * modelViewPosition;
       vScreenPosition = gl_Position.xyz/gl_Position.w;
+      vUv = uv;
     }
   `,
   fragmentShader: `\
@@ -1680,6 +1683,7 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
     // varying vec3 vPosition;
     varying vec3 vScreenPosition;
     varying vec3 vBC;
+    varying vec2 vUv;
 
     vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
     vec3 lightDirection = vec3(0.0, 0.0, 1.0);
@@ -1698,14 +1702,9 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
       float lightFactor = dot(faceNormal, lightDirection);
       gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor); */
 
-      vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
-      gl_FragColor = texture2D(uCameraTex, uv);
+      // vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+      gl_FragColor = texture2D(uCameraTex, vUv);
       gl_FragColor.a = 1.0;
-      // gl_FragColor = vec4((vScreenPosition.x)/2.0+0.5, 0.0, (vScreenPosition.y)/2.0+0.5, 1.0);
-
-      /* if (gl_FragColor.x >= 1.0 || gl_FragColor.z >= 1.0 || gl_FragColor.x <= 0.0 || gl_FragColor.z <= 0.0) {
-        gl_FragColor = vec4(1.0);
-      } */
     }
   `,
   side: THREE.BackSide,
@@ -1727,7 +1726,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   vertexShader: `\
     varying vec3 vScreenPosition;
     void main() {
-      gl_Position = vec4(uv-1.0, 0.0, 1.0);
+      gl_Position = vec4((uv-0.5)*2.0, 0.0, 1.0);
       vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
       vec4 projectionPosition = projectionMatrix * modelViewPosition;
       vScreenPosition = projectionPosition.xyz/projectionPosition.w;
@@ -1809,23 +1808,23 @@ const marchCubesMesh = (() => {
             const baseI = i/3;
             const baseIndex2 = i*2;
             if ((baseI%2) === 0) {
-              const cx = (baseI/2)%(cameraTexSquares);
-              const cy = Math.floor(baseI/2/(cameraTexSquares));
-              uvs[baseIndex2] = cx*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+1] = cy*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+2] = cx*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+3] = (cy+1)*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+4] = (cx+1)*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+5] = (cy+1)*cameraTexTriangleSize/cameraTexSize;
+              const cx = (baseI/2)%(marchCubesTexSquares);
+              const cy = Math.floor(baseI/2/(marchCubesTexSquares));
+              uvs[baseIndex2] = cx*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+1] = cy*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+2] = cx*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+3] = (cy+1)*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+4] = (cx+1)*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+5] = (cy+1)*marchCubesTexTriangleSize/marchCubesTexSize;
             } else {
-              const cx = ((baseI-1)/2)%(cameraTexSquares);
-              const cy = Math.floor((baseI-1)/2/(cameraTexSquares));
-              uvs[baseIndex2] = cx*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+1] = cy*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+2] = (cx+1)*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+3] = (cy+1)*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+4] = (cx+1)*cameraTexTriangleSize/cameraTexSize;
-              uvs[baseIndex2+5] = cy*cameraTexTriangleSize/cameraTexSize;
+              const cx = ((baseI-1)/2)%(marchCubesTexSquares);
+              const cy = Math.floor((baseI-1)/2/(marchCubesTexSquares));
+              uvs[baseIndex2] = cx*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+1] = cy*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+2] = (cx+1)*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+3] = (cy+1)*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+4] = (cx+1)*marchCubesTexTriangleSize/marchCubesTexSize;
+              uvs[baseIndex2+5] = cy*marchCubesTexTriangleSize/marchCubesTexSize;
             }
           }
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
