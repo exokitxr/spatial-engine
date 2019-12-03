@@ -843,9 +843,7 @@ const localQuaternion = new THREE.Quaternion();
 const localQuaternion2 = new THREE.Quaternion();
 const localMatrix = new THREE.Matrix4();
 const localEuler = new THREE.Euler();
-const localRay = new THREE.Ray();
 const localRaycaster = new THREE.Raycaster();
-const localColor = new THREE.Color();
 
 const z180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
@@ -864,7 +862,7 @@ camera.position.z = 0.5;
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 3);
+const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
 directionalLight.position.set(0.5, 1, 0.5);
 scene.add(directionalLight);
 
@@ -1101,7 +1099,112 @@ orbitControls.screenSpacePanning = true;
 orbitControls.enableMiddleZoom = false;
 orbitControls.update();
 
+const _makeRenderTargetPlaneMesh = map => {
+  const geometry = new THREE.PlaneBufferGeometry(0.5, 0.5);
+  const material = new THREE.MeshBasicMaterial({
+    map,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  return mesh;
+};
+
+const colorTarget = new THREE.WebGLRenderTarget(128, 128, {
+  format: THREE.RGBAFormat,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+colorTarget.depthTexture = new THREE.DepthTexture(colorTarget.width, colorTarget.height);
+const colorMesh = _makeRenderTargetPlaneMesh(colorTarget.texture);
+colorMesh.position.set(1, 1, 0);
+container.add(colorMesh);
+// window.depthTexture = colorTarget.depthTexture;
+
+const depthMesh = _makeRenderTargetPlaneMesh(colorTarget.depthTexture);
+depthMesh.position.set(1.5, 1, 0);
+container.add(depthMesh);
+
+const depthVsh = `
+  // uniform float uAnimation;
+  // attribute float typex;
+  // varying vec3 vPosition;
+  void main() {
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+  }
+`;
+const depthFsh = `
+  vec4 EncodeFloatRGBA( float v ) {
+    vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
+    enc = fract(enc);
+    enc -= enc.yzww * vec4(1.0/255.0,1.0/255.0,1.0/255.0,0.0);
+    return enc;
+  }
+  float DecodeFloatRGBA( vec4 rgba ) {
+    return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
+  }
+  void main() {
+    float originalZ = gl_FragCoord.z / gl_FragCoord.w;
+    // gl_FragColor = vec4(originalZ, 0.0, 0.0, 1.0);
+    gl_FragColor = EncodeFloatRGBA(originalZ);
+  }
+`;
+const depthMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    /* uCurrentParcel: {
+      type: 'v4',
+      value: new THREE.Vector4(),
+    },
+    uHoverParcel: {
+      type: 'v4',
+      value: new THREE.Vector4(),
+    },
+    uSelectedParcel: {
+      type: 'v4',
+      value: new THREE.Vector4(),
+    },
+    uSelectedColor: {
+      type: 'c',
+      value: new THREE.Color().setHex(0x29b6f6),
+    },
+    uAnimation: {
+      type: 'f',
+      value: 1,
+    }, */
+  },
+  vertexShader: depthVsh,
+  fragmentShader: depthFsh,
+  // transparent: true,
+});
+
+const pbuf = new Uint8Array(4);
+window.addEventListener('mousemove', e => {
+  const {x, y, width, height} = renderer.domElement.getBoundingClientRect();
+  const ex = (e.clientX - x) / width * colorTarget.width;
+  const ey = (e.clientY - y) / height * colorTarget.height;
+  // console.log('got x y', ex, ey);
+
+  renderer.readRenderTargetPixels(colorTarget, ex, ey, 1, 1, pbuf, 0);
+  console.log('read', pbuf.join(','));
+});
+
 function animate(timestamp, frame, referenceSpace) {
+  colorMesh.visible = false;
+  depthMesh.visible = false;
+
+  scene.overrideMaterial = depthMaterial;
+  renderer.setRenderTarget(colorTarget);
+  renderer.render(scene, camera);
+  scene.overrideMaterial = null;
+
+  /* renderer.setRenderTarget(depthTarget);
+  // scene.overrideMaterial = depthMaterial;
+  renderer.render(scene, camera);
+  scene.overrideMaterial = null; */
+
+  colorMesh.visible = true;
+  depthMesh.visible = true;
+
+  renderer.setRenderTarget(null);
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
