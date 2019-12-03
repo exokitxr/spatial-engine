@@ -812,8 +812,8 @@ header > .login-form.phase-3 > .phaseless-content
       </div> -->
 
       <div class=sidebar>
-        <input type=button value="Capture 1" id=capture-1-button>
-        <input type=button value="Capture 1" id=capture-2-button>
+        <input type=button value="Capture point cloud" id=capture-point-cloud-button>
+        <input type=button value="Capture mesh" id=capture-mesh-button>
       </div>
     </div>
     <script type=module>
@@ -854,7 +854,7 @@ const scene = new THREE.Scene();
 const container = new THREE.Object3D();
 scene.add(container);
 
-const frustumSize = 1;
+const frustumSize = 2;
 const aspect = 1;
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -862,7 +862,7 @@ camera.position.y = 1.5;
 camera.position.z = 0.5;
 // camera.lookAt(new THREE.Vector3(0, 1, 0))
 
-const cursorCamera = new THREE.OrthographicCamera( 0.5 * frustumSize * aspect / - 2, 0.5 * frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, 0.1, 300 ); // new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
+const cursorCamera = new THREE.OrthographicCamera( frustumSize * aspect / - 2, frustumSize * aspect / 2, frustumSize / 2, frustumSize / - 2, 0.1, 300 ); // new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300);
 
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
@@ -1144,6 +1144,52 @@ const cubeMesh = (() => {
 })();
 container.add(cubeMesh);
 
+const particlesMesh = (() => {
+  const resolution = 16;
+  const resolutionP1 = resolution + 1;
+  const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xFF00FF,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  mesh.update = renderTarget => {
+    cursorCamera.position.copy(camera.position);
+    cursorCamera.quaternion.copy(camera.quaternion);
+    _renderDepth();
+
+    const pbuf = new Float32Array(renderTarget.width*renderTarget.height*4);
+    renderer.readRenderTargetPixels(renderTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
+
+    let i = 0;
+    for (let x = 0; x < resolution; x++) {
+      for (let y = 0; y < resolution; y++) {
+        console.log(i);
+        const xFactor = x / resolution;
+        const yFactor = y / resolution;
+        const px = Math.floor(xFactor * colorTarget.width);
+        const py = Math.floor((1-yFactor) * colorTarget.height);
+        const slice = pbuf.slice((px * 4) + (py * colorTarget.width * 4));
+        const z = DecodeFloatRGBA(slice);
+        
+        localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
+        localVector.copy(localRaycaster.ray.origin)
+          .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z));
+        const newCubeGeometry = cubeGeometry.clone()
+          .applyMatrix(localMatrix.makeTranslation(localVector.x, localVector.y, localVector.z));
+        positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
+        i++;
+      }
+    }
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  };
+  return mesh;
+})();
+container.add(particlesMesh);
+
 const depthVsh = `
   // uniform float uAnimation;
   // attribute float typex;
@@ -1231,15 +1277,27 @@ window.addEventListener('mousemove', e => {
 
   const xFactor = (e.clientX - rect.left) / rect.width;
   const yFactor = -(e.clientY - rect.top) / rect.height;
-  localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
-  cubeMesh.position.copy(localRaycaster.ray.origin)
-    .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-  cursorCamera.position.copy(localRaycaster.ray.origin);
-  cursorCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
-  console.log('read', z, cubeMesh.position.y, pbuf.join(','));
+  if (xFactor >= 0 && xFactor <= 1 && -yFactor >= 0 && -yFactor <= 1) {
+    localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
+    cubeMesh.position.copy(localRaycaster.ray.origin)
+      .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
+    cursorCamera.position.copy(localRaycaster.ray.origin);
+    cursorCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
+    // console.log('read', z, cubeMesh.position.y, pbuf.join(','));
+    _renderDepth();
+  }
 });
 
-function animate(timestamp, frame, referenceSpace) {
+const capturePointCloudButton = document.getElementById('capture-point-cloud-button');
+capturePointCloudButton.addEventListener('click', () => {
+  particlesMesh.update(colorTarget);
+});
+const captureMeshButton = document.getElementById('capture-mesh-button');
+captureMeshButton.addEventListener('click', () => {
+  
+});
+
+const _renderDepth = () => {
   colorMesh.visible = false;
   depthMesh.visible = false;
   cubeMesh.visible = false;
@@ -1259,6 +1317,8 @@ function animate(timestamp, frame, referenceSpace) {
   cubeMesh.visible = true;
 
   renderer.setRenderTarget(null);
+};
+function animate(timestamp, frame, referenceSpace) {
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
