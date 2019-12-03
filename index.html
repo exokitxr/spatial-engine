@@ -826,6 +826,9 @@ import './Reflector.js';
 // import './land.js';
 // import './bmfont.js';
 
+import ModelLoader from 'https://model-loader.exokit.org/model-loader.js';
+import avatarModels from 'https://avatar-models.exokit.org/avatar-models.js';
+
 const parcelSize = 16;
 
 const floorPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0));
@@ -846,23 +849,6 @@ const localColor = new THREE.Color();
 
 const z180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
-const _patchModel = object => {
-  object.scene.traverse(o => {
-    if (o.isMesh) {
-      o.frustumCulled = false;
-
-      if (o.material.opacity === 0) {
-        o.material.opacity = 1;
-      }
-    }
-  });
-};
-const _loadModelUrl = async (url, filename) => {
-  const model = await ModelLoader.loadModelUrl(url, filename);
-  _patchModel(model);
-  return model;
-};
-
 const scene = new THREE.Scene();
 
 // renderItems(scene);
@@ -872,8 +858,8 @@ scene.add(container);
 
 const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.y = 1.5;
-camera.position.z = 2;
-// camera.rotation.y = Math.PI;
+camera.position.z = 0.5;
+// camera.lookAt(new THREE.Vector3(0, 1, 0))
 
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
@@ -1087,6 +1073,13 @@ const mirrorMesh = (() => {
 })();
 container.add(mirrorMesh);
 
+(async () => {
+  const {url} = avatarModels[0];
+  const src = `https://avatar-models.exokit.org/${url}`;
+  const object = await ModelLoader.loadModelUrl(src);
+  container.add(object.scene);
+})();
+
 const renderer = new THREE.WebGLRenderer({
   alpha: true,
   antialias: true,
@@ -1103,6 +1096,7 @@ const iframeWrapper = document.getElementById('iframe-wrapper');
 iframeWrapper.appendChild(renderer.domElement);
 
 const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+orbitControls.target.set(0, 1, 0);
 orbitControls.screenSpacePanning = true;
 orbitControls.enableMiddleZoom = false;
 orbitControls.update();
