@@ -1672,7 +1672,7 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
       vec3 yTangent = dFdy( vPosition );
       vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
       float lightFactor = dot(faceNormal, lightDirection);
-      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9);
+      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
     }
   `,
   side: THREE.BackSide,
