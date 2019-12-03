@@ -1,0 +1,1116 @@
+<!doctype html>
+<html>
+  <head>
+    <meta http-equiv="origin-trial" content="AspvaSU7F1Gbpa8q9JRNRNXFF+0+77C1xkxf1hkzJCrBI7Mmt/eG25QXLBn7lfzPsgrN5next8ZtIiCeGs6R4w8AAABleyJvcmlnaW4iOiJodHRwczovL2V4b2tpdC5vcmc6NDQzIiwiZmVhdHVyZSI6IldlYlhSRGV2aWNlTTc2IiwiZXhwaXJ5IjoxNTcxMTEyNjU0LCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+    <style>
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  /* background-color: #000;
+  color: #F5F5F5; */
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","Roboto","Oxygen","Ubuntu","Cantarell","Fira Sans","Droid Sans","Helvetica Neue",sans-serif;
+  font-size: 15px;
+}
+.body {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+.body.fullscreen .header,
+.body.fullscreen .sidebar,
+.body.fullscreen .tools,
+.body.fullscreen .iframe-buttons
+{
+  display: none;
+}
+.body.fullscreen .iframe-wrapper {
+  margin-top: 0;
+}
+header {
+  position: absolute;
+  display: flex;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 50px;
+  background-color: #FFF;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.08);
+  align-items: center;
+  user-select: none;
+  z-index: 1;
+}
+.main-selector {
+  outline: none;
+}
+.main-selector:hover .target,
+.main-selector .options .option:hover
+{
+  background-color: #42a5f5;
+  color: #FFF;
+}
+.main-selector:active .target,
+.main-selector.open .target,
+.main-selector .options .option:active,
+.main-selector .options .option.open
+{
+  background-color: #1e88e5;
+  color: #FFF;
+}
+.main-selector:hover .target .icon,
+.main-selector.open .target .icon
+{
+  filter: invert(1);
+}
+.main-selector .target .icon {
+  width: 50px;
+  height: 50px;
+  margin: 0 20px;
+}
+.main-selector .options {
+  display: flex;
+  position: absolute;
+  top: 50px;
+  left: 0;
+  width: 300px;
+  background-color: #FFF;
+  color: #000;
+  flex-direction: column;
+}
+.main-selector .options .option {
+  padding: 15px;
+}
+.main-selector:not(.open) .options {
+  display: none;
+}
+header nav {
+  display: flex;
+  height: 100%;
+  padding: 0 10px;
+  letter-spacing: 0.9px;
+  align-items: center;
+}
+header nav span {
+  display: flex;
+  height: 30px;
+  padding: 10px;
+  border-radius: 4px;
+  align-items: center;
+  text-transform: uppercase;
+}
+header nav.selected span {
+  background-color: #5c6bc0;
+  color: #FFF;
+  cursor: default;
+}
+header nav:not(.selected):not([disabled]):hover {
+  cursor: pointer;
+}
+header nav:not(.selected):hover span {
+  background-color: #EEE;
+}
+header:not(.main-2) .channel-select,
+header:not(.main-3) .parcel-display
+{
+  display: none;
+}
+.channel-select {
+  display: flex;
+  position: relative;
+  align-items: center;
+}
+.channel-select input[type=text] {
+  height: 50px;
+  border-radius: 0;
+}
+.parcel-display {
+  display: flex;
+}
+.channels-content {
+  display: flex;
+  position: absolute;
+  top: 50px;
+  left: 0;
+  right: 0;
+  flex-direction: column;
+  background-color: #FFF;
+}
+.channels-content .a-channel {
+  display: flex;
+  padding: 5px;
+  align-items: center;
+  cursor: pointer;
+}
+.channels-content .a-channel:hover {
+  background-color: #EEE;
+}
+.channels-content .a-channel:hover i {
+  background-color: #000;
+  color: #FFF;
+}
+.channels-content .a-channel i {
+  display: flex;
+  height: 50px;
+  width: 50px;
+  margin-right: 10px;
+  background-color: #EEE;
+  border-radius: 5px;
+  font-size: 16px;
+  justify-content: center;
+  align-items: center;
+}
+.parcel-create,
+.parcel-edit
+{
+  display: flex;
+}
+.parcel-create:not(.open),
+.parcel-edit:not(.open)
+{
+  display: none;
+}
+.details-content h1,
+.details-content h2,
+.details-content h3,
+.details-content h4,
+.details-content h5,
+.details-content h6,
+.details-content p,
+.details-content .multibutton
+{
+  margin: 15px 0;
+  padding: 0 20px;
+}
+h1, h2, h3, h4, h5, h6, p {
+  font-weight: inherit;
+}
+.screenshot-image {
+  width: 100%;
+}
+.iframe-wrapper {
+  position: relative;
+  display: flex;
+  margin-top: 50px;
+  flex: 1;
+  background-color: #000;
+}
+.tabs {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+.tabs .tab {
+  display: inline-flex;
+  margin: 5px 5px;
+  padding: 5px 10px;
+  background-color: #D8D8D8;
+  border-radius: 4px;
+  color: #000;
+  align-items: center;
+}
+.tabs .tab .text {
+  margin-right: 10px;
+  align-items: center;
+}
+.tabs .tab .close-x {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  background-color: #ef5350;
+  color: #FFF;
+  justify-content: center;
+  align-items: center;
+}
+canvas {
+  width: 100% !important;
+  height: 100% !important;
+  /* background-color: #f8f8f8; */
+  outline: none;
+}
+a {
+  color: #AAA;
+  text-decoration: none;
+}
+a:hover {
+  color: #42a5f5;
+}
+a:active {
+  color: #1976d2;
+}
+.tools {
+  display: flex;
+  position: absolute;
+  top: 60px;
+  left: 10px;
+}
+.tools > .tool {
+  display: flex;
+  width: 30px;
+  height: 30px;
+  justify-content: center;
+  align-items: center;
+  background-color: #EEE;
+  font-size: 16px;
+  /* color: #000; */
+  cursor: pointer;
+}
+.tools > .tool:hover {
+  background-color: #42a5f5;
+  color: #FFF;
+}
+.tools > .tool:active, .tools > .tool.open {
+  background-color: #1e88e5;
+  color: #FFF;
+}
+.chat {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  width: 400px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+.chat > .messages {
+  display: flex;
+  flex-direction: column;
+  padding: 7px 14px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  color: #FFF;
+  pointer-events: all;
+}
+.chat > .messages:empty {
+  display: none;
+}
+.chat > .input {
+  width: 100%;
+  /* background-color: transparent; */
+  background-color: rgba(50, 50, 50, 0.5);
+  color: #FFF;
+  pointer-events: all;
+}
+.chat > .input:not(.open) {
+  visibility: hidden;
+}
+.save-dialog {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 50px;
+  left: 0;
+  width: 300px;
+  padding: 30px;
+  background-color: #FFF;
+}
+.save-dialog:not(.open) {
+  display: none;
+}
+.iframe-buttons {
+  position: absolute;
+  right: 330px;
+  bottom: 30px;
+}
+.code-buttons {
+  position: absolute;
+  right: 30px;
+  bottom: 30px;
+  display: flex;
+}
+.multibutton {
+  display: flex;
+}
+.multibutton .button:not(.first) {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.multibutton .button:not(.last) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.button {
+  display: inline-flex;
+  margin-right: 5px;
+  padding: 7px 14px;
+  border: 2px solid;
+  border-radius: 100px;
+  color: #5c6bc0;
+  font-size: 13px;
+  outline: none
+}
+/* .button:not(:last-child) {
+  margin-right: 20px;
+} */
+.button:not([disabled]):hover {
+  background-color: #5c6bc0;
+  border-color: #5c6bc0;
+  color: #FFF;
+  cursor: pointer;
+}
+.button[disabled] {
+  color: #b71c1c;
+}
+#code-header:not(.open),
+#code-button:not(.open) .opened-text,
+#code-button.open .closed-text
+{
+  display: none;
+}
+.coming-soon {
+  color: #ccc;
+}
+.coming-soon-sub {
+  font-size: 10px;
+  display: block;
+}
+.header-link {
+  color: #666;
+}
+.code-header {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  display: flex;
+  align-items: center;
+  width: 600px;
+  height: 32px;
+  padding: 5px;
+  font-size: 13px;
+  color: #4caf50;
+  background-color: #f2f3f5;
+}
+.sidebar {
+  display: flex;
+  margin-top: 50px;
+  width: 300px;
+  background-color: #FFF;
+}
+.sidebar .content-tabs, .sidebar .content-tabs .content-tab {
+  background-color: #CCC;
+}
+.sidebar .content-tabs .content-tab {
+  display: flex;
+  position: relative;
+  width: 50px;
+  height: 50px;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  color: #333;
+  cursor: pointer;
+}
+.sidebar .content-tabs .content-tab:hover {
+  background-color: #EEE;
+  color: #000;
+}
+.sidebar .content-tabs .content-tab.open {
+  background-color: #FFF;
+  color: #5c6bc0;
+}
+.sidebar .content-tabs .content-tab .sub {
+  display: flex;
+  position: absolute;
+  width: 100px;
+  height: 50px;
+  left: -100px;
+  background-color: #333;
+  color: #FFF;
+  justify-content: center;
+  align-items: center;
+  visibility: hidden;
+}
+.sidebar .content-tabs .content-tab:hover .sub {
+  visibility: visible;
+}
+.sidebar .content {
+  flex: 1;
+  overflow-y: auto;
+}
+.sidebar .content:not(.open) {
+  display: none;
+}
+.site-urls-content .a-site,
+.avatar-models-content .a-avatar,
+.prefabs-content .a-prefab,
+.inventory-content .a-file
+{
+  display: flex;
+  position: relative;
+  padding: 5px 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+.site-urls-content .a-site img,
+.avatar-models-content .a-avatar img,
+.prefabs-content .a-prefab img,
+.inventory-content .a-file i
+{
+  display: flex;
+  width: 80px;
+  height: 80px;
+  margin-right: 10px;
+  font-size: 50px;
+  justify-content: center;
+  align-items: center;
+}
+.site-urls-content .a-site img:not([src]),
+.avatar-models-content .a-avatar img:not([src]),
+.prefabs-content .a-prefab img:not([src]) {
+  visibility: hidden;
+}
+.site-urls-content .a-site .wrap {
+  flex: 1;
+  overflow: hidden;
+}
+.site-urls-content .a-site .url {
+  color: #666;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.prefabs-content .a-prefab .wrap {
+  flex: 1;
+  overflow: hidden;
+}
+.site-urls-content > .wrap {
+  display: flex;
+}
+.site-urls-content input[type=text],
+.avatar-models-content input[type=text],
+.prefabs-content input[type=text]
+{
+  width: 100%;
+  margin: 0;
+  padding: 15px;
+  border-radius: 0;
+}
+.site-urls-content .input-button {
+  display: flex;
+  width: 48px;
+  height: 48px;
+  background-color: #CCC;
+  color: #333;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+.site-urls-content .input-button:hover {
+  background-color: #5c6bc0;
+  color: #FFF;
+}
+.site-urls-content .input-button:active {
+  background-color: #3949ab;
+  color: #FFF;
+}
+.site-urls-content .a-site .wrap .label {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.site-urls-content .a-site .overlay,
+.avatar-models-content .a-avatar .overlay,
+.prefabs-content .a-prefab .overlay,
+.inventory-content .a-file .overlay
+{
+  display: flex;
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background-image: linear-gradient(to right, transparent, #FFF 50%);
+  justify-content: flex-end;
+  align-items: center;
+  visibility: hidden;
+}
+.site-urls-content .a-site:hover .overlay,
+.avatar-models-content .a-avatar:hover .overlay,
+.prefabs-content .a-prefab:hover .overlay,
+.inventory-content .a-file:hover .overlay
+{
+  visibility: visible;
+}
+.prefabs-content .end {
+  width: 100%;
+  height: 1px;
+}
+.selected-object-details,
+.avatar-details,
+/* .parcel-details, */
+.placeholder-details
+{
+  display: none;
+}
+.selected-object-details.open,
+.avatar-details.open,
+/* .parcel-details.open, */
+.selected-object-details:not(.open) + .avatar-details:not(.open) /* + .parcel-details:not(.open) */ + .placeholder-details
+{
+  display: block;
+}
+.switch-wrap {
+  display: flex;
+  align-items: center;
+  color: #AAA;
+  cursor: pointer;
+  user-select: none;
+  // transition: all 0.3s cubic-bezier(0, 1, 0, 1);
+}
+.switch {
+  position: relative;
+  margin-right: 5px;
+  padding: 2px;
+  border: 2px solid #AAA;
+  border-radius: 100px;
+  cursor: pointer;
+  // transition: all 0.3s cubic-bezier(0, 1, 0, 1);
+}
+.switch::before {
+  display: block;
+  position: relative;
+  height: 12px;
+  width: 24px;
+  background-color: #EEE;
+  border-radius: 100px;
+  content: '';
+}
+.switch::after {
+  display: block;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 12px;
+  width: 12px;
+  background-color: #AAA;
+  border-radius: 100px;
+  content: '';
+  // transition: all 0.3s cubic-bezier(0, 1, 0, 1);
+}
+.switch-wrap.on {
+  color: #5c6bc0;
+}
+.switch-wrap.on .switch {
+  border-color: #5c6bc0;
+}
+/* .switch.on::before {
+  background-color: #BBB;
+} */
+.switch-wrap.on .switch::after {
+  left: 14px;
+  background-color: #5c6bc0;
+}
+input[type=button] {
+  display: block;
+}
+.code {
+  width: 100%;
+  height: 100%;
+  font-family: monospace;
+  font-size: 14px;
+  border: 0;
+  outline: none;
+}
+.minibuttons {
+  position: relative;
+}
+.minibuttons button {
+  position: absolute;
+  bottom: 0;
+}
+.minibuttons button + button {
+  left: 50px;
+}
+.user-code {
+  display: none;
+}
+input[type=text] {
+  width: 160px;
+  /* margin: 0 20px; */
+  padding: 7px 14px;
+  background-color: #f2f3f5;
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+/* account.css */
+
+input[type=email],
+input[type=text]
+{
+  margin-right: 10px;
+  padding: 7px 14px;
+  background-color: #f2f3f5;
+  border: 0;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: inherit;
+  outline: none;
+}
+
+header > .login-form {
+  display: flex;
+  margin-left: auto;
+}
+
+body.logging-in .login-form,
+header > .login-form:not(.phase-1) > .phase-1-content,
+header > .login-form:not(.phase-2) > .phase-2-content,
+header > .login-form:not(.phase-3) > .phase-3-content,
+header > .login-form.phase-1 > .phaseless-content,
+header > .login-form.phase-2 > .phaseless-content,
+header > .login-form.phase-3 > .phaseless-content
+{
+  display: none;
+}
+
+.login-form .phase-content {
+  display: flex;
+  align-items: center;
+}
+.login-form .phase-content .login-error
+{
+  margin-right: 15px;
+  font-weight: 600;
+}
+.login-form .phase-content .user-button {
+  display: flex;
+  height: 30px;
+  margin-right: 10px;
+  padding: 3px 10px;
+  background-color: #f2f3f5;
+  border: 0;
+  border-radius: 8px;
+  align-items: center;
+  cursor: pointer;
+}
+.login-form .phase-content .user-button:hover,
+.login-form .phase-content .user-button.open {
+  background-color: #CCC;
+}
+.login-form .phase-content .user-button > img {
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+}
+.login-form .phase-content .user-button > .name {
+  display: flex;
+  height: 100%;
+  font-weight: 600;
+  align-items: center;
+}
+.login-form .phase-content .login-notice {
+  color: #4caf50;
+}
+.login-form .phase-content .login-error {
+  color: #e53935;
+}
+.login-form .phaseless-content {
+  padding: 0 30px;
+}
+    </style>
+    <script src="https://kit.fontawesome.com/0735724151.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <div class=body>
+      <header class="header main-1" id=header>
+        <div class=main-selector tabindex=-1 id=main-selector>
+          <nav class=target>
+            <img src="logo.svg" class="icon">
+            <i class="fas fa-chevron-down"></i>
+          </nav>
+          <div class=options>
+            <nav class="option open">Home</nav>
+            <nav class=option>Multiplayer</nav>
+            <nav class=option>Land</nav>
+          </div>
+        </div>
+
+        <div class=channel-select>
+          <div class=channels-content id=channels-content style="display: none"></div>
+          <input type=text placeholder="channel name" id=channel-input>
+          <div class=multibutton>
+            <nav class="button first last" disabled id=connect-button>Create</nav>
+            <nav class="button first last" id=disconnect-button style="display: none">Disconnect</nav>
+          </div>
+        </div>
+
+        <div class=parcel-display>
+          <div class=parcel-create id=parcel-create>
+            <div class=multibutton>
+              <nav class="button first last" id=create-parcel-button>Claim parcel</nav>
+            </div>
+          </div>
+          <div class=parcel-edit id=parcel-edit>
+            <input type=text placeholder="parcel name" id=parcel-name-input>
+            <div class=multibutton>
+              <nav class="button first last" id=save-parcel-button style="display: none">Save</nav>
+            </div>
+            <div class=multibutton>
+              <nav class="button first last" id=edit-parcel-button>Edit parcel</nav>
+            </div>
+            <div class=multibutton>
+              <nav class="button first last" id=stop-editing-button style="display: none">Stop editing</nav>
+            </div>
+          </div>
+        </div>
+
+        <!-- <form class="login-form phase-1" id=login-form>
+          <div class=phase-content>
+            <div class=login-notice id=login-notice></div>
+            <div class=login-error id=login-error></div>
+          </div>
+          <div class="phase-content phase-1-content">
+            <input type=email placeholder="your@email.com" id=login-email>
+            <input type=submit value="Log in" class="button highlight">
+          </div>
+          <div class="phase-content phase-2-content">
+            <input type=text placeholder="Verification code" id=login-verification-code>
+            <input type=submit value="Verify" class="button highlight">
+          </div>
+          <div class="phase-content phase-3-content">
+            <button class=user-button id=user-button>
+              <img src="exobot.png">
+              <span class=name id=login-email-static>a@modules.io</span>
+            </button>
+            <input type=submit value="Log out" class="button highlight">
+          </div>
+          <div class="phase-content phaseless-content">
+            <div>Working...</div>
+          </div>
+        </form> -->
+      </header>
+
+      <div class=iframe-wrapper id=iframe-wrapper></div>
+      <!-- <div class=tools>
+        <nav class="tool open"><i class="fal fa-video"></i></nav>
+        <nav class=tool><i class="fal fa-mouse-pointer"></i></nav>
+        <nav class=tool><i class="fal fa-arrows"></i></nav>
+        <nav class=tool><i class="fal fa-vector-square"></i></nav>
+      </div> -->
+      <form class=chat id=chat>
+        <div class=messages id=chat-messages></div>
+        <input type=text class=input id=chat-input>
+      </form>
+      <form class=save-dialog id=save-dialog>
+        <input type=text placeholder="Enter file name..." id=save-name-input>
+        <input type=submit value="Save">
+      </form>
+      <!-- <div class="iframe-buttons multibutton">
+        <a class="button first" id="enable-mic-button">Enable Mic</a>
+        <a class="button first" id="disable-mic-button" disabled style="display: none;">Disable Mic</a>
+        <a class="button" id="firstperson-button">Firstperson</a>
+        <a class="button" id="thirdperson-button">Thirdperson</a>
+        <a class="button last" id="enter-xr-button" style="display: none;">Enter XR</a>
+        <a class="button last" id="no-xr-button" disabled style="display: none;">No XR</a>
+      </div> -->
+
+      <div class=sidebar>
+        <input type=button value="Capture 1" id=capture-1-button>
+        <input type=button value="Capture 1" id=capture-2-button>
+      </div>
+    </div>
+    <script type=module>
+import './three.js';
+// import './BufferGeometryUtils.js';
+// import './OutlineEffect.js';
+import './OrbitControls.js';
+// import './TransformControls.js';
+import './Reflector.js';
+// import './land.js';
+// import './bmfont.js';
+
+const parcelSize = 16;
+
+const floorPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0));
+
+const localVector = new THREE.Vector3();
+const localVector2 = new THREE.Vector3();
+const localVector3 = new THREE.Vector3();
+const localVector4 = new THREE.Vector3();
+const localVector5 = new THREE.Vector3();
+const localVector2D = new THREE.Vector2();
+const localQuaternion = new THREE.Quaternion();
+const localQuaternion2 = new THREE.Quaternion();
+const localMatrix = new THREE.Matrix4();
+const localEuler = new THREE.Euler();
+const localRay = new THREE.Ray();
+const localRaycaster = new THREE.Raycaster();
+const localColor = new THREE.Color();
+
+const z180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+
+const _patchModel = object => {
+  object.scene.traverse(o => {
+    if (o.isMesh) {
+      o.frustumCulled = false;
+
+      if (o.material.opacity === 0) {
+        o.material.opacity = 1;
+      }
+    }
+  });
+};
+const _loadModelUrl = async (url, filename) => {
+  const model = await ModelLoader.loadModelUrl(url, filename);
+  _patchModel(model);
+  return model;
+};
+
+const scene = new THREE.Scene();
+
+// renderItems(scene);
+
+const container = new THREE.Object3D();
+scene.add(container);
+
+const camera = new THREE.PerspectiveCamera(90, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.y = 1.5;
+camera.position.z = 2;
+// camera.rotation.y = Math.PI;
+
+const ambientLight = new THREE.AmbientLight(0x808080);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 3);
+directionalLight.position.set(0.5, 1, 0.5);
+scene.add(directionalLight);
+
+/* const directionalLight2 = new THREE.DirectionalLight(0xFFFFFF, 4);
+directionalLight2.position.set(-0.5, 1, -0.5);
+scene.add(directionalLight2); */
+
+function mod(a, n) {
+  return ((a%n)+n)%n;
+}
+const floorMesh = (() => {
+  const numTiles = 64;
+  const numTiles2P1 = 2*numTiles+1;
+  const planeBufferGeometry = new THREE.PlaneBufferGeometry(1, 1)
+    .applyMatrix(localMatrix.makeScale(0.95, 0.95, 1))
+    .applyMatrix(localMatrix.makeRotationFromQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI/2)))
+    .toNonIndexed();
+  const numCoords = planeBufferGeometry.attributes.position.array.length;
+  const numVerts = numCoords/3;
+  const positions = new Float32Array(numCoords*numTiles2P1*numTiles2P1);
+  const typesx = new Float32Array(numVerts*numTiles2P1*numTiles2P1);
+  const typesz = new Float32Array(numVerts*numTiles2P1*numTiles2P1);
+  let i = 0;
+  for (let x = -numTiles; x <= numTiles; x++) {
+    for (let z = -numTiles; z <= numTiles; z++) {
+      const newPlaneBufferGeometry = planeBufferGeometry.clone()
+        .applyMatrix(localMatrix.makeTranslation(x, 0, z));
+      positions.set(newPlaneBufferGeometry.attributes.position.array, i * newPlaneBufferGeometry.attributes.position.array.length);
+      let typex = 0;
+      if (mod((x + parcelSize/2), parcelSize) === 0) {
+        typex = 1/8;
+      } else if (mod((x + parcelSize/2), parcelSize) === parcelSize-1) {
+        typex = 2/8;
+      }
+      let typez = 0;
+      if (mod((z + parcelSize/2), parcelSize) === 0) {
+        typez = 1/8;
+      } else if (mod((z + parcelSize/2), parcelSize) === parcelSize-1) {
+        typez = 2/8;
+      }
+      for (let j = 0; j < numVerts; j++) {
+        typesx[i*numVerts + j] = typex;
+        typesz[i*numVerts + j] = typez;
+      }
+      i++;
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('typex', new THREE.BufferAttribute(typesx, 1));
+  geometry.setAttribute('typez', new THREE.BufferAttribute(typesz, 1));
+  const floorVsh = `
+    // uniform float uAnimation;
+    attribute float typex;
+    attribute float typez;
+    varying vec3 vPosition;
+    varying float vTypex;
+    varying float vTypez;
+    varying float vDepth;
+    void main() {
+      // float radius = sqrt(position.x*position.x + position.z*position.z);
+      vec3 p = vec3(position.x, position.y /*- (1.0 - uAnimation) * radius*/, position.z);
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.);
+      vPosition = position + vec3(0.5, 0.0, 0.5);
+      vTypex = typex;
+      vTypez = typez;
+      vDepth = gl_Position.z / ${numTiles.toFixed(8)};
+    }
+  `;
+  const floorFsh = `
+    uniform vec4 uCurrentParcel;
+    uniform vec4 uHoverParcel;
+    uniform vec4 uSelectedParcel;
+    uniform vec3 uSelectedColor;
+    // uniform float uAnimation;
+    varying vec3 vPosition;
+    varying float vTypex;
+    varying float vTypez;
+    varying float vDepth;
+    void main() {
+      vec3 c;
+      float a;
+      if (
+        vPosition.x >= uSelectedParcel.x &&
+        vPosition.z >= uSelectedParcel.y &&
+        vPosition.x <= uSelectedParcel.z &&
+        vPosition.z <= uSelectedParcel.w
+      ) {
+        c = uSelectedColor;
+      } else {
+        c = vec3(0.5);
+      }
+      float add = 0.0;
+      if (
+        vPosition.x >= uHoverParcel.x &&
+        vPosition.z >= uHoverParcel.y &&
+        vPosition.x <= uHoverParcel.z &&
+        vPosition.z <= uHoverParcel.w
+      ) {
+        add = 0.2;
+      } else {
+        vec3 f = fract(vPosition);
+        if (vTypex >= 2.0/8.0) {
+          if (f.x >= 0.8) {
+            add = 0.2;
+          }
+        } else if (vTypex >= 1.0/8.0) {
+          if (f.x <= 0.2) {
+            add = 0.2;
+          }
+        }
+        if (vTypez >= 2.0/8.0) {
+          if (f.z >= 0.8) {
+            add = 0.2;
+          }
+        } else if (vTypez >= 1.0/8.0) {
+          if (f.z <= 0.2) {
+            add = 0.2;
+          }
+        }
+        /* if (
+          vPosition.x >= uCurrentParcel.x &&
+          vPosition.z >= uCurrentParcel.y &&
+          vPosition.x <= uCurrentParcel.z &&
+          vPosition.z <= uCurrentParcel.w
+        ) {
+          add = 0.2;
+        } */
+      }
+      c += add;
+      a = (1.0-vDepth)*0.5;
+      gl_FragColor = vec4(c, a);
+    }
+  `;
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      /* uTex: {
+        type: 't',
+        value: new THREE.Texture(),
+      }, */
+      uCurrentParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uHoverParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uSelectedParcel: {
+        type: 'v4',
+        value: new THREE.Vector4(),
+      },
+      uSelectedColor: {
+        type: 'c',
+        value: new THREE.Color().setHex(0x29b6f6),
+      },
+      uAnimation: {
+        type: 'f',
+        value: 1,
+      },
+    },
+    vertexShader: floorVsh,
+    fragmentShader: floorFsh,
+    transparent: true,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  return mesh;
+})();
+container.add(floorMesh);
+
+let renderingMirror = false;
+const mirrorMesh = (() => {
+  const mirrorWidth = 3;
+  const mirrorHeight = 2;
+  const geometry = new THREE.PlaneBufferGeometry(mirrorWidth, mirrorHeight)
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0, 1, 0));
+  const mesh = new THREE.Reflector(geometry, {
+    clipBias: 0.003,
+    textureWidth: 1024 * window.devicePixelRatio,
+    textureHeight: 2048 * window.devicePixelRatio,
+    color: 0x889999,
+    backgroundColor: 0x000000,
+    recursion: 1,
+    transparent: true,
+  });
+  mesh.position.set(0, 0, -1);
+
+  const borderMesh = new THREE.Mesh(
+    new THREE.BoxBufferGeometry(mirrorWidth + 0.1, mirrorHeight + 0.1, 0.1)
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0, 1, -0.1/2 - 0.01)),
+    new THREE.MeshPhongMaterial({
+      color: 0x5c6bc0,
+    })
+  );
+  mesh.add(borderMesh);
+
+  mesh.onBeforeRender2 = () => {
+    renderingMirror = true;
+  };
+  mesh.onAfterRender2 = () => {
+    renderingMirror = false;
+  };
+
+  return mesh;
+})();
+container.add(mirrorMesh);
+
+const renderer = new THREE.WebGLRenderer({
+  alpha: true,
+  antialias: true,
+});
+// console.log('set size', window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.sortObjects = false;
+renderer.getContext().canvas.addEventListener('webglcontextlost', e => {
+  console.log('webglcontextlost', e);
+  debugger;
+});
+const iframeWrapper = document.getElementById('iframe-wrapper');
+iframeWrapper.appendChild(renderer.domElement);
+
+const orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+orbitControls.screenSpacePanning = true;
+orbitControls.enableMiddleZoom = false;
+orbitControls.update();
+
+function animate(timestamp, frame, referenceSpace) {
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(animate);
+    </script>
+  </body>
+</html>
