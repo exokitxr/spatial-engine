@@ -816,6 +816,10 @@ header > .login-form.phase-3 > .phaseless-content
           <div class=switch id=gpu-switch></div>
           GPU
         </label>
+        <label class="switch-wrap on" id=raycast-switch-wrap>
+          <div class=switch id=raycast-switch></div>
+          Raycast
+        </label>
         <label class="switch-wrap on" id=voxels-switch-wrap>
           <div class=switch id=voxels-switch></div>
           Voxelization
@@ -1148,6 +1152,11 @@ gpuSwitchWrap.addEventListener('click', () => {
   const enabled = gpuSwitchWrap.classList.contains('on');
   particlesMesh.visible = !enabled;
   gpuParticlesMesh.visible = enabled;
+});
+const raycastSwitchWrap = document.getElementById('raycast-switch-wrap');
+raycastSwitchWrap.addEventListener('click', () => {
+  raycastSwitchWrap.classList.toggle('on');
+  raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
 });
 const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
 voxelsSwitchWrap.addEventListener('click', () => {
