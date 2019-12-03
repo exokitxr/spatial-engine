@@ -812,8 +812,10 @@ header > .login-form.phase-3 > .phaseless-content
       </div> -->
 
       <div class=sidebar>
-        <input type=button value="Capture point cloud" id=capture-point-cloud-button>
-        <input type=button value="Capture mesh" id=capture-mesh-button>
+        <label class="switch-wrap on" id=gpu-switch-wrap>
+          <div class=switch id=gpu-switch></div>
+          GPU
+        </label>
       </div>
     </div>
     <script type=module>
@@ -1090,6 +1092,14 @@ container.add(mirrorMesh);
   container.add(object.scene);
 })();
 
+const gpuSwitchWrap = document.getElementById('gpu-switch-wrap');
+gpuSwitchWrap.addEventListener('click', () => {
+  gpuSwitchWrap.classList.toggle('on');
+  const enabled = gpuSwitchWrap.classList.contains('on');
+  particlesMesh.visible = !enabled;
+  gpuParticlesMesh.visible = enabled;
+});
+
 const renderer = new THREE.WebGLRenderer({
   alpha: true,
   antialias: true,
@@ -1156,7 +1166,7 @@ const cubeMesh = (() => {
 })();
 container.add(cubeMesh);
 
-/* const particlesMesh = (() => {
+const particlesMesh = (() => {
   const resolution = 64;
   const resolutionP1 = resolution + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
@@ -1164,17 +1174,17 @@ container.add(cubeMesh);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const material = new THREE.MeshBasicMaterial({
-    color: 0xFF00FF,
+    color: 0x00FFFF,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
-  mesh.update = renderTarget => {
+  mesh.update = () => {
     cursorCamera.position.copy(camera.position);
     cursorCamera.quaternion.copy(camera.quaternion);
-    _renderDepth();
+    _renderDepth(colorTarget, cursorCamera);
 
-    const pbuf = new Float32Array(renderTarget.width*renderTarget.height*4);
-    renderer.readRenderTargetPixels(renderTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
+    const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
+    renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
 
     let i = 0;
     for (let x = 0; x < resolution; x++) {
@@ -1199,7 +1209,8 @@ container.add(cubeMesh);
   };
   return mesh;
 })();
-container.add(particlesMesh); */
+particlesMesh.visible = !gpuSwitchWrap.classList.contains('on');
+container.add(particlesMesh);
 
 const gpuParticlesMeshMaterial = (() => {
   const depthVsh = `
@@ -1310,7 +1321,7 @@ const gpuParticlesMesh = (() => {
   const material = gpuParticlesMeshMaterial;
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
-  mesh.update = renderTarget => {
+  mesh.update = () => {
     cursorCamera.position.copy(camera.position);
     cursorCamera.quaternion.copy(camera.quaternion);
     cursorCamera.updateMatrixWorld();
@@ -1325,6 +1336,7 @@ const gpuParticlesMesh = (() => {
   };
   return mesh;
 })();
+gpuParticlesMesh.visible = gpuSwitchWrap.classList.contains('on');
 container.add(gpuParticlesMesh);
 
 const depthMaterial = (() => {
@@ -1429,23 +1441,18 @@ window.addEventListener('mousemove', e => {
   }
 });
 
-/* const capturePointCloudButton = document.getElementById('capture-point-cloud-button');
-capturePointCloudButton.addEventListener('click', () => {
-  particlesMesh.update(colorTarget);
-});
-const captureMeshButton = document.getElementById('capture-mesh-button');
-captureMeshButton.addEventListener('click', () => {
-  
-}); */
-
 setInterval(() => {
-  gpuParticlesMesh.update(colorTarget);
+  if (gpuSwitchWrap.classList.contains('on')) {
+    gpuParticlesMesh.update();
+  } else {
+    particlesMesh.update();
+  }
 }, 100);
 
 const _renderDepth = (target, camera) => {
   colorMesh.visible = false;
   cubeMesh.visible = false;
-  // particlesMesh.visible = false;
+  particlesMesh.visible = false;
   gpuParticlesMesh.visible = false;
 
   scene.overrideMaterial = depthMaterial;
@@ -1455,8 +1462,9 @@ const _renderDepth = (target, camera) => {
 
   colorMesh.visible = true;
   cubeMesh.visible = true;
-  // particlesMesh.visible = true;
-  gpuParticlesMesh.visible = true;
+  const enabled = gpuSwitchWrap.classList.contains('on');
+  particlesMesh.visible = !enabled;
+  gpuParticlesMesh.visible = enabled;
 
   renderer.setRenderTarget(null);
 };
