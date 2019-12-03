@@ -1083,7 +1083,20 @@ const mirrorMesh = (() => {
 
   return mesh;
 })();
-container.add(mirrorMesh);
+// container.add(mirrorMesh);
+
+const boxMesh = (() => {
+  const geometry = new THREE.BoxBufferGeometry(2, 2, 0.1);
+  const material = new THREE.MeshPhongMaterial({
+    color: 0x333333,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  return mesh;
+})();
+boxMesh.position.y = 1;
+boxMesh.position.z = -1;
+container.add(boxMesh);
 
 (async () => {
   const {url} = avatarModels[0];
