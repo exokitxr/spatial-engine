@@ -1531,11 +1531,11 @@ const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 
 const workingPotentials = new Float32Array(width*height*depth);
 const voxelsMaterial = (() => {
   const voxelsVsh = `
-    attribute vec3 pos;
+    attribute vec3 coord;
     uniform sampler2D uPotentialsTex;
     varying float vPotential;
     void main() {
-      float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
+      float ux = (coord.x + coord.y*${(width*depth).toFixed(8)} + coord.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 uv = vec2(ux, 0.5);
       vPotential = texture2D(uPotentialsTex, uv).r;
       if (vPotential > 0.0) {
@@ -1569,7 +1569,7 @@ const voxelsMaterial = (() => {
 })();
 const voxelsTexturedMaterial = (() => {
   const voxelsVsh = `
-    attribute vec3 pos;
+    attribute vec3 coord;
     attribute vec3 positionCenter;
     uniform sampler2D uPotentialsTex;
     uniform sampler2D uCameraTex;
@@ -1577,7 +1577,7 @@ const voxelsTexturedMaterial = (() => {
     varying vec3 vPosition;
     varying vec4 vColor;
     void main() {
-      float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
+      float ux = (coord.x + coord.y*${(width*depth).toFixed(8)} + coord.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 voxelUv = vec2(ux, 0.5);
       float potential = texture2D(uPotentialsTex, voxelUv).r;
       if (potential > 0.0) {
@@ -1644,7 +1644,7 @@ const voxelsMesh = (() => {
     // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
     .toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
-  const poss = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
+  const coords = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
   const positionCenters = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
   let i = 0;
   for (let x = 0; x < width; x++) {
@@ -1655,7 +1655,7 @@ const voxelsMesh = (() => {
         positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
         const offset = Float32Array.from([x, y, z]);
         for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
-          poss.set(offset, i*newCubeGeometry.attributes.position.array.length + j*3);
+          coords.set(offset, i*newCubeGeometry.attributes.position.array.length + j*3);
         }
         const center = Float32Array.from([x*voxelSize + 0.5*voxelSize, y*voxelSize + 0.5*voxelSize, z*voxelSize + 0.5*voxelSize]);
         for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
@@ -1667,7 +1667,7 @@ const voxelsMesh = (() => {
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('pos', new THREE.BufferAttribute(poss, 3));
+  geometry.setAttribute('coord', new THREE.BufferAttribute(coords, 3));
   geometry.setAttribute('positionCenter', new THREE.BufferAttribute(positionCenters, 3));
   const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
   const mesh = new THREE.Mesh(geometry, material);
