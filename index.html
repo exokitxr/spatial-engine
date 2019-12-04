@@ -889,7 +889,7 @@ const voxelSize = 0.1;
 const potentialClearValue = -0.2;
 const potentialSetValue = 0.7;
 
-const _getPotentialIndex = (x, y, z) => x + y*(width+2)*(depth+2) + z*(width+2);
+const _getPotentialIndex = (x, y, z) => x + y*(width+1)*(depth+1) + z*(width+1);
 
 const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
@@ -1537,15 +1537,17 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
   stencilBuffer: false,
 });
 
-const workingPotentials = new Float32Array((width+2)*(height+2)*(depth+2));
 class XRChunk {
   constructor(position) {
     this.object = new THREE.Object3D();
     this.object.position.copy(position);
     container.add(this.object);
 
-    const potentials = new Float32Array((width+2)*(height+2)*(depth+2));
-    const potentialsTexture = new THREE.DataTexture(potentials, (width+2)*(height+2)*(depth+2), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+    const workingPotentials = new Float32Array((width+1)*(height+1)*(depth+1));
+    this.workingPotentials = workingPotentials;
+
+    const potentials = new Float32Array((width+1)*(height+1)*(depth+1));
+    const potentialsTexture = new THREE.DataTexture(potentials, (width+1)*(height+1)*(depth+1), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
     const voxelsMaterial = (() => {
       const voxelsVsh = `
         attribute vec3 coord;
@@ -1555,7 +1557,7 @@ class XRChunk {
         varying vec2 vBC;
         varying vec3 vPosition;
         void main() {
-          float ux = (coord.x + coord.y*${((width+2)*(depth+2)).toFixed(8)} + coord.z*${(width+2).toFixed(8)} + 0.5) / ${((width+2)*(height+2)*(depth+2)).toFixed(8)};
+          float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
           vec2 uv = vec2(ux, 0.5);
           vPotential = texture2D(uPotentialsTex, uv).r;
           vBC = barycentric;
@@ -1640,7 +1642,7 @@ class XRChunk {
         varying vec3 vPosition;
         varying vec4 vColor;
         void main() {
-          float ux = (coord.x + coord.y*${((width+2)*(depth+2)).toFixed(8)} + coord.z*${(width+2).toFixed(8)} + 0.5) / ${((width+2)*(height+2)*(depth+2)).toFixed(8)};
+          float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
           vec2 voxelUv = vec2(ux, 0.5);
           float potential = texture2D(uPotentialsTex, voxelUv).r;
           if (potential > 0.0) {
@@ -1759,7 +1761,7 @@ class XRChunk {
       const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
       const mesh = new THREE.Mesh(geometry, material);
       mesh.frustumCulled = false;
-      mesh.update = () => {
+      mesh.updatePotentials = () => {
         cursorCamera.position.copy(camera.position);
         cursorCamera.quaternion.copy(camera.quaternion);
         _renderDepth(colorTarget, cursorCamera);
@@ -1780,58 +1782,85 @@ class XRChunk {
             
             localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
             localVector.copy(localRaycaster.ray.origin)
-              .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
-              .sub(this.object.position)
-              .divideScalar(voxelSize)
+              .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z));
+            if (localVector.y >= 0) {
+              localVector
+                .sub(this.object.position)
+                .divideScalar(voxelSize)
+                .add(localVector2.set(0.5,0.5,0.5));
 
-            if (
-              localVector.x >= 0 && (localVector.x + 0.5) < (width+2) &&
-              localVector.y >= 0 && (localVector.y + 0.5) < (height+2) &&
-              localVector.z >= 0 && (localVector.z + 0.5) < (depth+2)
-            ) {
-              workingPotentials[_getPotentialIndex(
-                Math.floor(localVector.x + 0.5),
-                Math.floor(localVector.y + 0.5),
-                Math.floor(localVector.z + 0.5)
-              )] = potentialSetValue;
+              if (
+                localVector.x >= 0 && (localVector.x) < (width+1) &&
+                localVector.y >= 0 && (localVector.y) < (height+1) &&
+                localVector.z >= 0 && (localVector.z) < (depth+1)
+              ) {
+                workingPotentials[_getPotentialIndex(
+                  Math.floor(localVector.x),
+                  Math.floor(localVector.y),
+                  Math.floor(localVector.z)
+                )] = potentialSetValue;
+              }
             }
             i++;
           }
         }
-        /* for (let x = 0; x < width; x++) {
-          for (let y = 0; y < height; y++) {
-            for (let z = 0; z < depth; z++) {
+      };
+      mesh.smoothPotentials = () => {
+        for (let x = 0; x < width+1; x++) {
+          for (let y = 0; y < height+1; y++) {
+            for (let z = 0; z < depth+1; z++) {
               let sum = 0;
-              let num = 0;
+              // let num = 0;
               for (let dx = -1; dx <= 1; dx++) {
                 const ax = x + dx;
-                if (ax >= 0 && ax < width) {
+                // if (ax >= 0 && ax < width+2) {
                   for (let dy = -1; dy <= 1; dy++) {
                     const ay = y + dy;
-                    if (ay >= 0 && ay < height) {
+                    // if (ay >= 0 && ay < height+2) {
                       for (let dz = -1; dz <= 1; dz++) {
                         const az = z + dz;
-                        if (az >= 0 && az < depth) {
-                          sum += workingPotentials[_getPotentialIndex(ax, ay, az)];
-                          num++;
-                        }
+                        // if (ax >= 0 && ax < width+2 && ay >= 0 && ay < height+2 && az >= 0 && az < depth+2) {
+                          const chunk = _getXrChunkAt(
+                            this.object.position.x + ax*voxelSize,
+                            this.object.position.y + ay*voxelSize,
+                            this.object.position.z + az*voxelSize
+                          );
+                          if (chunk) {
+                            // const o = [ax, ay, az];
+                            // window.o = o;
+                            // console.log('got');
+                            const chunkOffset = localVector.copy(this.object.position)
+                              .sub(chunk.object.position);
+                            const lax = ax + chunkOffset.x*width;
+                            const lay = ay + chunkOffset.y*height;
+                            const laz = az + chunkOffset.z*depth;
+                            /* if (o[0] >= 0 && o[0] < width+2 && o[1] >= 0 && o[1] < height+2 && o[2] >= 0 && o[2] < depth+2 && chunk.workingPotentials[_getPotentialIndex(lax, lay, laz)] !== workingPotentials[_getPotentialIndex(o[0], o[1], o[2])]) {
+                              debugger;
+                            } */
+                            sum += chunk.workingPotentials[_getPotentialIndex(lax, lay, laz)];
+                            // num++;
+                          } else {
+                            // console.log('no chunk', )
+                            sum += potentialClearValue;
+                          }
+                        // }
                       }
-                    }
+                    // }
                   }
-                }
+                // }
               }
-              potentials[_getPotentialIndex(x, y, z)] = sum/num;
+              potentials[_getPotentialIndex(x, y, z)] = sum/(3*3*3);
             }
           }
-        } */
-        for (let x = 0; x < width+2; x++) {
+        }
+        /* for (let x = 0; x < width+2; x++) {
           for (let y = 0; y < height+2; y++) {
             for (let z = 0; z < depth+2; z++) {
               const k = _getPotentialIndex(x, y, z);
               potentials[k] = workingPotentials[k];
             }
           }
-        }
+        } */
         potentialsTexture.needsUpdate = true;
       };
       return mesh;
@@ -1886,6 +1915,7 @@ class XRChunk {
           vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
           float lightFactor = dot(faceNormal, lightDirection);
           gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
+          // gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 1.0);
         }
       `,
       // side: THREE.BackSide,
@@ -1980,7 +2010,7 @@ class XRChunk {
           running = true;
           worker.request({
             method: 'march',
-            dims: Float32Array.from([width+2, height+2, depth+2]),
+            dims: Float32Array.from([width+1, height+1, depth+1]),
             potential: potentials,
             shift: Float32Array.from([0, 0, 0]),
             marchCubesTexSize,
@@ -2034,7 +2064,10 @@ class XRChunk {
     marchCubesRenderScene.add(marchCubesRenderMesh);
   }
   update() {
-    this.voxelsMesh.update();
+    this.voxelsMesh.updatePotentials();
+  }
+  postProcess() {
+    this.voxelsMesh.smoothPotentials();
     this.marchCubesMesh.update();
   }
 }
@@ -2042,6 +2075,18 @@ const xrChunks = [
   new XRChunk(new THREE.Vector3(0, 0, 0)),
   new XRChunk(new THREE.Vector3(0, 1, 0)),
 ];
+const _getXrChunkAt = (x, y, z) => {
+  for (let i = 0; i < xrChunks.length; i++) {
+    const xrChunk = xrChunks[i];
+    const dx = x - xrChunk.object.position.x;
+    const dy = y - xrChunk.object.position.y;
+    const dz = z - xrChunk.object.position.z;
+    if (dx >= 0 && dx < 1 && dy >= 0 && dy < 1 && dz >= 0 && dz < 1) {
+      return xrChunk;
+    }
+  }
+  return null;
+};
 
 /* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
 textureMesh.position.set(1, 1, 0);
@@ -2089,6 +2134,9 @@ setInterval(() => {
   }
   for (let i = 0; i < xrChunks.length; i++) {
     xrChunks[i].update();
+  }
+  for (let i = 0; i < xrChunks.length; i++) {
+    xrChunks[i].postProcess();
   }
 }, 100);
 
