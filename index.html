@@ -1539,7 +1539,11 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
 
 const workingPotentials = new Float32Array(width*height*depth);
 class XRChunk {
-  constructor(x, y, z) {
+  constructor(position) {
+    this.object = new THREE.Object3D();
+    this.object.position.copy(position);
+    container.add(this.object);
+
     const potentials = new Float32Array(width*height*depth);
     const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
     const voxelsMaterial = (() => {
@@ -1777,6 +1781,7 @@ class XRChunk {
             localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
             localVector.copy(localRaycaster.ray.origin)
               .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
+              .sub(this.object.position)
               .divideScalar(voxelSize)
 
             if (
@@ -1824,7 +1829,7 @@ class XRChunk {
       return mesh;
     })();
     voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
-    container.add(voxelsMesh);
+    this.object.add(voxelsMesh);
     this.voxelsMesh = voxelsMesh;
 
     const marchCubesTexSize = 2048;
@@ -2005,13 +2010,14 @@ class XRChunk {
       return mesh;
     })();
     marchCubesMesh.visible = meshingSwitchWrap.classList.contains('on');
-    container.add(marchCubesMesh);
+    this.object.add(marchCubesMesh);
     this.marchCubesMesh = marchCubesMesh;
 
     const marchCubesRenderMesh = (() => {
       const {geometry} = marchCubesMesh;
       const material = marchCubesRenderMaterial;
       const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.copy(this.object.position);
       mesh.scale.copy(marchCubesMesh.scale);
       mesh.frustumCulled = false;
       return mesh;
@@ -2025,8 +2031,8 @@ class XRChunk {
   }
 }
 const xrChunks = [
-  // new XRChunk(0, 0, 0),
-  new XRChunk(0, 1, 0),
+  // new XRChunk(new THREE.Vector3(0, 0, 0)),
+  new XRChunk(new THREE.Vector3(0, 1, 0)),
 ];
 
 /* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
