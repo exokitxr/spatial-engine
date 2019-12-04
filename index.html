@@ -1194,32 +1194,32 @@ const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
 voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
   const enabled = meshingSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrVolumes.length; i++) {
-    xrVolumes[i].voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
+  for (let i = 0; i < xrChunks.length; i++) {
+    xrChunks[i].voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
   }
 });
 const voxelTextureSwitchWrap = document.getElementById('voxel-texture-switch-wrap');
 voxelTextureSwitchWrap.addEventListener('click', () => {
   voxelTextureSwitchWrap.classList.toggle('on');
   const enabled = voxelTextureSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrVolumes.length; i++) {
-    xrVolumes[i].voxelsMesh.material = enabled ? voxelsTexturedMaterial : voxelsMaterial;
+  for (let i = 0; i < xrChunks.length; i++) {
+    xrChunks[i].voxelsMesh.material = enabled ? voxelsTexturedMaterial : voxelsMaterial;
   }
 });
 const meshingSwitchWrap = document.getElementById('meshing-switch-wrap');
 meshingSwitchWrap.addEventListener('click', () => {
   meshingSwitchWrap.classList.toggle('on');
   const enabled = meshingSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrVolumes.length; i++) {
-    xrVolumes[i].marchCubesMesh.visible = enabled;
+  for (let i = 0; i < xrChunks.length; i++) {
+    xrChunks[i].marchCubesMesh.visible = enabled;
   }
 });
 const meshingTextureSwitchWrap = document.getElementById('meshing-texture-switch-wrap');
 meshingTextureSwitchWrap.addEventListener('click', () => {
   meshingTextureSwitchWrap.classList.toggle('on');
   const enabled = meshingTextureSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrVolumes.length; i++) {
-    xrVolumes[i].marchCubesMesh.material = enabled ? marchCubesTexturedMaterial : marchCubesMaterial;
+  for (let i = 0; i < xrChunks.length; i++) {
+    xrChunks[i].marchCubesMesh.material = enabled ? marchCubesTexturedMaterial : marchCubesMaterial;
   }
 });
 
@@ -1537,7 +1537,7 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
   stencilBuffer: false,
 });
 
-class XRVolume {
+class XRChunk {
   constructor(x, y, z) {
     const potentials = new Float32Array(width*height*depth);
     const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
@@ -2022,9 +2022,9 @@ class XRVolume {
     this.marchCubesMesh.update();
   }
 }
-const xrVolumes = [
-  new XRVolume(0, 0, 0),
-  new XRVolume(0, 1, 0),
+const xrChunks = [
+  new XRChunk(0, 0, 0),
+  new XRChunk(0, 1, 0),
 ];
 
 /* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
@@ -2071,8 +2071,8 @@ setInterval(() => {
   if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
-  for (let i = 0; i < xrVolumes.length; i++) {
-    xrVolumes[i].update();
+  for (let i = 0; i < xrChunks.length; i++) {
+    xrChunks[i].update();
   }
 }, 100);
 
@@ -2083,14 +2083,14 @@ const _hideUiMeshes = () => {
   particlesMesh.visible = false;
   const oldGpuParticlesMeshVisible = gpuParticlesMesh.visible;
   gpuParticlesMesh.visible = false;
-  const unhideXrVolumes = xrVolumes.map(xrVolume => {
-    const oldVoxelsMeshVisible = xrVolume.voxelsMesh.visible;
-    xrVolume.voxelsMesh.visible = false;
-    const oldMarchCubesMeshVisible = xrVolume.marchCubesMesh.visible;
-    xrVolume.marchCubesMesh.visible = false;
+  const unhideXrChunks = xrChunks.map(xrChunk => {
+    const oldVoxelsMeshVisible = xrChunk.voxelsMesh.visible;
+    xrChunk.voxelsMesh.visible = false;
+    const oldMarchCubesMeshVisible = xrChunk.marchCubesMesh.visible;
+    xrChunk.marchCubesMesh.visible = false;
     return () => {
-      xrVolume.voxelsMesh.visible = oldVoxelsMeshVisible;
-      xrVolume.marchCubesMesh.visible = oldMarchCubesMeshVisible;
+      xrChunk.voxelsMesh.visible = oldVoxelsMeshVisible;
+      xrChunk.marchCubesMesh.visible = oldMarchCubesMeshVisible;
     };
   });
   // const oldTextureMeshVisible = textureMesh.visible;
@@ -2100,8 +2100,8 @@ const _hideUiMeshes = () => {
     raycastMesh.visible = oldRaycastMeshVisible;
     particlesMesh.visible = oldParticlesMeshVisible;
     gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
-    for (let i = 0; i < unhideXrVolumes.length; i++) {
-      unhideXrVolumes[i]();
+    for (let i = 0; i < unhideXrChunks.length; i++) {
+      unhideXrChunks[i]();
     }
     // textureMesh.visible = oldTextureMeshVisible;
   };
