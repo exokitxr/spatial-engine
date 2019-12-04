@@ -1203,7 +1203,7 @@ voxelTextureSwitchWrap.addEventListener('click', () => {
   voxelTextureSwitchWrap.classList.toggle('on');
   const enabled = voxelTextureSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].voxelsMesh.material = enabled ? voxelsTexturedMaterial : voxelsMaterial;
+    xrChunks[i].voxelsMesh.material = enabled ? xrChunks[i].voxelsTexturedMaterial : xrChunks[i].voxelsMaterial;
   }
 });
 const meshingSwitchWrap = document.getElementById('meshing-switch-wrap');
@@ -1219,7 +1219,7 @@ meshingTextureSwitchWrap.addEventListener('click', () => {
   meshingTextureSwitchWrap.classList.toggle('on');
   const enabled = meshingTextureSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].marchCubesMesh.material = enabled ? marchCubesTexturedMaterial : marchCubesMaterial;
+    xrChunks[i].marchCubesMesh.material = enabled ? xrChunks[i].marchCubesTexturedMaterial : xrChunks[i].marchCubesMaterial;
   }
 });
 
@@ -1537,11 +1537,11 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
   stencilBuffer: false,
 });
 
+const workingPotentials = new Float32Array(width*height*depth);
 class XRChunk {
   constructor(x, y, z) {
     const potentials = new Float32Array(width*height*depth);
     const potentialsTexture = new THREE.DataTexture(potentials, width*height*depth, 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
-    const workingPotentials = new Float32Array(width*height*depth);
     const voxelsMaterial = (() => {
       const voxelsVsh = `
         attribute vec3 coord;
@@ -1625,6 +1625,7 @@ class XRChunk {
         },
       });
     })();
+    this.voxelsMaterial = voxelsMaterial;
     const voxelsTexturedMaterial = (() => {
       const voxelsVsh = `
         attribute vec3 coord;
@@ -1695,6 +1696,7 @@ class XRChunk {
         },
       });
     })();
+    this.voxelsTexturedMaterial = voxelsTexturedMaterial;
 
     const voxelsMesh = (() => {
       const  cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
@@ -1836,7 +1838,6 @@ class XRChunk {
       depthBuffer: true,
       stencilBuffer: false,
     });
-    this.marchCubesRenderTarget = marchCubesRenderTarget;
 
     const marchCubesMaterial = new THREE.ShaderMaterial({
       uniforms: {},
@@ -1883,6 +1884,7 @@ class XRChunk {
         derivatives: true,
       },
     });
+    this.marchCubesMaterial = marchCubesMaterial;
     const marchCubesTexturedMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uMarchCubesTex: {
@@ -1916,6 +1918,7 @@ class XRChunk {
       polygonOffsetUnits: -4, */
       transparent: true,
     });
+    this.marchCubesTexturedMaterial = marchCubesTexturedMaterial;
     const marchCubesRenderMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uCameraTex: {
@@ -1979,6 +1982,18 @@ class XRChunk {
               geometry.setAttribute('uv2', new THREE.BufferAttribute(uvs2, 2));
 
               mesh.visible = meshingSwitchWrap.classList.contains('on');
+
+              if (meshingTextureSwitchWrap.classList.contains('on')) {
+                const unhideUiMeshes = _hideUiMeshes();
+
+                renderer.setRenderTarget(marchCubesRenderTarget);
+                renderer.autoClear = false;
+                renderer.render(marchCubesRenderScene, camera);
+                renderer.autoClear = true;
+
+                unhideUiMeshes();
+                renderer.setRenderTarget(null);
+              }
             } else {
               mesh.visible = false;
             }
@@ -2003,27 +2018,14 @@ class XRChunk {
     })();
     const marchCubesRenderScene = new THREE.Scene();
     marchCubesRenderScene.add(marchCubesRenderMesh);
-    this.marchCubesRenderScene = marchCubesRenderScene;
   }
   update() {
-    if (meshingTextureSwitchWrap.classList.contains('on')) {
-      const unhideUiMeshes = _hideUiMeshes();
-
-      renderer.setRenderTarget(this.marchCubesRenderTarget);
-      renderer.autoClear = false;
-      renderer.render(this.marchCubesRenderScene, camera);
-      renderer.autoClear = true;
-
-      unhideUiMeshes();
-      renderer.setRenderTarget(null);
-    }
-
     this.voxelsMesh.update();
     this.marchCubesMesh.update();
   }
 }
 const xrChunks = [
-  new XRChunk(0, 0, 0),
+  // new XRChunk(0, 0, 0),
   new XRChunk(0, 1, 0),
 ];
 
