@@ -1219,9 +1219,8 @@ const _makeRenderTargetPlaneMesh = map => {
   return mesh;
 };
 
-const size = 512;
-const resolution = 128;
-const colorTarget = new THREE.WebGLRenderTarget(size, size, {
+const colorTargetSize = 256;
+const colorTarget = new THREE.WebGLRenderTarget(colorTargetSize, colorTargetSize, {
   minFilter: THREE.LinearFilter,
   magFilter: THREE.NearestFilter,
   format: THREE.RGBAFormat,
@@ -1251,7 +1250,7 @@ const raycastMesh = (() => {
 container.add(raycastMesh);
 
 const particlesMesh = (() => {
-  const resolutionP1 = resolution + 1;
+  const resolutionP1 = colorTargetSize + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
   const geometry = new THREE.BufferGeometry();
@@ -1270,11 +1269,11 @@ const particlesMesh = (() => {
     renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
 
     let i = 0;
-    for (let x = 0; x < resolution; x++) {
-      for (let y = 0; y < resolution; y++) {
+    for (let x = 0; x < colorTargetSize; x++) {
+      for (let y = 0; y < colorTargetSize; y++) {
         // console.log(i);
-        const xFactor = x / resolution;
-        const yFactor = y / resolution;
+        const xFactor = x / colorTargetSize;
+        const yFactor = y / colorTargetSize;
         const px = Math.floor(xFactor * colorTarget.width);
         const py = Math.floor((1-yFactor) * colorTarget.height);
         const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
@@ -1367,17 +1366,17 @@ const gpuParticlesMeshMaterial = (() => {
   });
 })();
 const gpuParticlesMesh = (() => {
-  const resolutionP1 = resolution + 1;
+  const resolutionP1 = colorTargetSize + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
   const numVecs = cubeGeometry.attributes.position.array.length/3;
   const uvs = new Float32Array(numVecs*2*resolutionP1*resolutionP1);
 
   let i = 0;
-  for (let x = 0; x < resolution; x++) {
-    for (let y = 0; y < resolution; y++) {
-      const xFactor = x / resolution;
-      const yFactor = y / resolution;
+  for (let x = 0; x < colorTargetSize; x++) {
+    for (let y = 0; y < colorTargetSize; y++) {
+      const xFactor = x / colorTargetSize;
+      const yFactor = y / colorTargetSize;
       /* const px = Math.floor(xFactor * colorTarget.width);
       const py = Math.floor((1-yFactor) * colorTarget.height);
       const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
@@ -1659,11 +1658,11 @@ const voxelsMesh = (() => {
 
     workingPotentials.fill(potentialClearValue);
     let i = 0;
-    for (let x = 0; x < resolution; x++) {
-      for (let y = 0; y < resolution; y++) {
+    for (let x = 0; x < colorTargetSize; x++) {
+      for (let y = 0; y < colorTargetSize; y++) {
         // console.log(i);
-        const xFactor = x / resolution;
-        const yFactor = y / resolution;
+        const xFactor = x / colorTargetSize;
+        const yFactor = y / colorTargetSize;
         const px = Math.floor(xFactor * colorTarget.width);
         const py = Math.floor((1-yFactor) * colorTarget.height);
         const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
