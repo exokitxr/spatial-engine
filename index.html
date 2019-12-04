@@ -1533,8 +1533,15 @@ const voxelsMaterial = (() => {
   `;
   const voxelsFsh = `
     varying float vPotential;
+
+    vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
+
     void main() {
-      gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), vPotential);
+      if (vPotential > 0.0) {
+        gl_FragColor = vec4(color, vPotential);
+      } else {
+        discard;
+      }
     }
   `;
   return new THREE.ShaderMaterial({
@@ -1615,7 +1622,7 @@ const voxelsTexturedMaterial = (() => {
     },
     vertexShader: voxelsVsh,
     fragmentShader: voxelsFsh,
-    transparent: true,
+    // transparent: true,
     extensions: {
       derivatives: true,
     },
