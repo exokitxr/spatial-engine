@@ -1750,8 +1750,8 @@ const marchCubesTexSize = 2048;
 const marchCubesTexTriangleSize = 64;
 const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
 const marchCubesRenderTarget = new THREE.WebGLRenderTarget(marchCubesTexSize, marchCubesTexSize, {
-  minFilter: THREE.NearestFilter,
-  magFilter: THREE.NearestFilter,
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.LinearFilter,
   format: THREE.RGBAFormat,
   // type: THREE.FloatType,
   depthBuffer: true,
