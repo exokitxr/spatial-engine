@@ -172,7 +172,7 @@ const _handleMessage = data => {
     case 'march': {
       const allocator = new Allocator();
 
-      const {dims: dimsData, potential: potentialData, shift: shiftData} = data;
+      const {dims: dimsData, potential: potentialData, shift: shiftData, marchCubesTexSize, marchCubesTexSquares, marchCubesTexTriangleSize} = data;
       const dims = allocator.alloc(Int32Array, 3);
       dims[0] = dimsData[0];
       dims[1] = dimsData[1];
@@ -183,30 +183,36 @@ const _handleMessage = data => {
       shift[0] = shiftData[0];
       shift[1] = shiftData[1];
       shift[2] = shiftData[2];
-      const indexOffset = 0;
       const positions = allocator.alloc(Float32Array, 1024*1024/Float32Array.BYTES_PER_ELEMENT);
-      const coords = allocator.alloc(Float32Array, 1024*1024/Float32Array.BYTES_PER_ELEMENT);
-      const faces = allocator.alloc(Uint32Array, 1024*1024/Uint32Array.BYTES_PER_ELEMENT);
+      const barycentrics = allocator.alloc(Float32Array, 1024*1024/Float32Array.BYTES_PER_ELEMENT);
+      const uvs = allocator.alloc(Float32Array, 1024*1024/Float32Array.BYTES_PER_ELEMENT);
+      const uvs2 = allocator.alloc(Float32Array, 1024*1024/Uint32Array.BYTES_PER_ELEMENT);
       const positionIndex = allocator.alloc(Uint32Array, 1);
-      const coordIndex = allocator.alloc(Uint32Array, 1);
-      const faceIndex = allocator.alloc(Uint32Array, 1);
+      const barycentricIndex = allocator.alloc(Uint32Array, 1);
+      const uvIndex = allocator.alloc(Uint32Array, 1);
+      const uvIndex2 = allocator.alloc(Uint32Array, 1);
       self.LocalModule._doMarchingCubes(
         dims.offset,
         potential.offset,
         shift.offset,
-        indexOffset,
+        marchCubesTexSize,
+        marchCubesTexSquares,
+        marchCubesTexTriangleSize,
         positions.offset,
-        coords.offset,
-        faces.offset,
+        barycentrics.offset,
+        uvs.offset,
+        uvs2.offset,
         positionIndex.offset,
-        coordIndex.offset,
-        faceIndex.offset
+        barycentricIndex.offset,
+        uvIndex.offset,
+        uvIndex2.offset
       );
       self.postMessage({
         result: {
           positions: positions.slice(0, positionIndex[0]),
-          coords: coords.slice(0, coordIndex[0]),
-          faces: faces.slice(0, faceIndex[0]),
+          barycentrics: barycentrics.slice(0, barycentricIndex[0]),
+          uvs: uvs.slice(0, uvIndex[0]),
+          uvs2: uvs2.slice(0, uvIndex2[0]),
         },
       });
       allocator.freeAll();

@@ -1885,89 +1885,12 @@ const marchCubesMesh = (() => {
         dims: Float32Array.from([width, height, depth]),
         potential: potentials,
         shift: Float32Array.from([0, 0, 0]),
+        marchCubesTexSize,
+        marchCubesTexSquares,
+        marchCubesTexTriangleSize,
       }).then(res => {
         if (res.positions.length > 0) {
-          const positionArray = res.positions;
-          const coordsArray = res.coords;
-          const indexArray = res.faces;
-
-          const positions = new Float32Array(indexArray.length*3);
-          const barycentrics = new Float32Array(indexArray.length*3);
-          const uvs = new Float32Array(indexArray.length*2);
-          const uvs2 = new Float32Array(indexArray.length*2);
-          for (let i = 0; i < indexArray.length; i += 3) {
-            const ai = indexArray[i];
-            const bi = indexArray[i+1];
-            const ci = indexArray[i+2];
-
-            const baseA = ai*3;
-            const baseB = bi*3;
-            const baseC = ci*3;
-
-            const baseIndex = i*3;
-            positions[baseIndex] = positionArray[baseA];
-            positions[baseIndex+1] = positionArray[baseA+1];
-            positions[baseIndex+2] = positionArray[baseA+2];
-            positions[baseIndex+3] = positionArray[baseB];
-            positions[baseIndex+4] = positionArray[baseB+1];
-            positions[baseIndex+5] = positionArray[baseB+2];
-            positions[baseIndex+6] = positionArray[baseC];
-            positions[baseIndex+7] = positionArray[baseC+1];
-            positions[baseIndex+8] = positionArray[baseC+2];
-
-            barycentrics[baseIndex] = 1;
-            barycentrics[baseIndex+1] = 0;
-            barycentrics[baseIndex+2] = 0;
-            barycentrics[baseIndex+3] = 0;
-            barycentrics[baseIndex+4] = 1;
-            barycentrics[baseIndex+5] = 0;
-            barycentrics[baseIndex+6] = 0;
-            barycentrics[baseIndex+7] = 0;
-            barycentrics[baseIndex+8] = 1;
-
-            const baseI = i/3;
-            // const coord = localVector4D.fromArray(coordsArray, i/3*4);
-            /* const avg = localVector.fromArray(positionArray, baseA)
-              .add(localVector2.fromArray(positionArray, baseB))
-              .add(localVector2.fromArray(positionArray, baseC))
-              .divideScalar(3)
-            const baseI = _getPotentialIndexScaled(Math.floor(avg.x), Math.floor(avg.y), Math.floor(avg.z), 1); */
-            // const baseI = coord.w*width*height*depth + _getPotentialIndex(coord.x, coord.y, coord.z);
-            const baseIndex2 = i*2;
-            if ((baseI%2) === 0) {
-              const cx = (baseI/2)%(marchCubesTexSquares);
-              const cy = Math.floor(baseI/2/(marchCubesTexSquares));
-              uvs[baseIndex2] = cx*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+1] = cy*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+2] = cx*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+3] = (cy+1)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+4] = (cx+1)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+5] = (cy+1)*marchCubesTexTriangleSize/marchCubesTexSize;
-
-              uvs2[baseIndex2] = (cx+1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+1] = (cy+1/marchCubesTexTriangleSize*2)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+2] = (cx+1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+3] = (cy+1-1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+4] = (cx+1-1/marchCubesTexTriangleSize*2)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+5] = (cy+1-1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-            } else {
-              const cx = ((baseI-1)/2)%(marchCubesTexSquares);
-              const cy = Math.floor((baseI-1)/2/(marchCubesTexSquares));
-              uvs[baseIndex2] = cx*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+1] = cy*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+2] = (cx+1)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+3] = (cy+1)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+4] = (cx+1)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs[baseIndex2+5] = cy*marchCubesTexTriangleSize/marchCubesTexSize;
-
-              uvs2[baseIndex2] = (cx+1/marchCubesTexTriangleSize*2)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+1] = (cy+1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+2] = (cx+1-1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+3] = (cy+1-1/marchCubesTexTriangleSize*2)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+4] = (cx+1-1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-              uvs2[baseIndex2+5] = (cy+1/marchCubesTexTriangleSize)*marchCubesTexTriangleSize/marchCubesTexSize;
-            }
-          }
+          const {positions, barycentrics, uvs, uvs2} = res;
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
           geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 3));
           geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
