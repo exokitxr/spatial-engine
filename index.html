@@ -824,6 +824,10 @@ header > .login-form.phase-3 > .phaseless-content
           <div class=switch id=voxels-switch></div>
           Voxelization
         </label>
+        <label class=switch-wrap id=voxel-texture-switch-wrap>
+          <div class=switch id=voxel-texture-switch></div>
+          Voxel texture
+        </label>
         <label class="switch-wrap on" id=meshing-switch-wrap>
           <div class=switch id=meshing-switch></div>
           Meshing
@@ -1167,6 +1171,11 @@ voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
   voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
 });
+const voxelTextureSwitchWrap = document.getElementById('voxel-texture-switch-wrap');
+voxelTextureSwitchWrap.addEventListener('click', () => {
+  voxelTextureSwitchWrap.classList.toggle('on');
+  voxelsMesh.material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
+});
 const meshingSwitchWrap = document.getElementById('meshing-switch-wrap');
 meshingSwitchWrap.addEventListener('click', () => {
   meshingSwitchWrap.classList.toggle('on');
@@ -1483,6 +1492,16 @@ const depthMaterial = (() => {
   });
 })();
 
+const cameraTexSize = 1024;
+const cameraTarget = new THREE.WebGLRenderTarget(cameraTexSize, cameraTexSize, {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.NearestFilter,
+  format: THREE.RGBAFormat,
+  // type: THREE.FloatType,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+
 const width = 20;
 const height = 20;
 const depth = 20;
@@ -1496,11 +1515,9 @@ const voxelsMaterial = (() => {
   const voxelsVsh = `
     attribute vec3 pos;
     uniform sampler2D uPotentialsTex;
-    // varying vec3 vPosition;
     varying float vPotential;
     void main() {
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-      // vPosition = position;
 
       float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 uv = vec2(ux, 0.5);
@@ -1508,10 +1525,8 @@ const voxelsMaterial = (() => {
     }
   `;
   const voxelsFsh = `
-    // varying vec3 vPosition;
     varying float vPotential;
     void main() {
-      // gl_FragColor = vec4(vPosition * vPotential, (2.0-vPosition.y) * 0.05);
       gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), vPotential);
     }
   `;
@@ -1521,31 +1536,66 @@ const voxelsMaterial = (() => {
         type: 't',
         value: potentialsTexture,
       },
-      /* uCurrentParcel: {
-        type: 'v4',
-        value: new THREE.Vector4(),
-      },
-      uHoverParcel: {
-        type: 'v4',
-        value: new THREE.Vector4(),
-      },
-      uSelectedParcel: {
-        type: 'v4',
-        value: new THREE.Vector4(),
-      },
-      uSelectedColor: {
-        type: 'c',
-        value: new THREE.Color().setHex(0x29b6f6),
-      },
-      uAnimation: {
-        type: 'f',
-        value: 1,
-      }, */
     },
     vertexShader: voxelsVsh,
     fragmentShader: voxelsFsh,
     transparent: true,
     depthWrite: false,
+  });
+})();
+const voxelsTexturedMaterial = (() => {
+  const voxelsVsh = `
+    attribute vec3 pos;
+    uniform sampler2D uPotentialsTex;
+    varying float vPotential;
+    varying vec3 vScreenPosition;
+    varying float vColor;
+    void main() {
+      float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
+      vec2 voxelUv = vec2(ux, 0.5);
+      vPotential = texture2D(uPotentialsTex, voxelUv).r;
+
+      vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+      vec4 projectionPosition = projectionMatrix * modelViewPosition;
+      vScreenPosition = projectionPosition.xyz/projectionPosition.w;
+      // vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+      // vColor = texture2D(uPotentialsTex, uv).r;
+
+      gl_Position = projectionPosition;
+    }
+  `;
+  const voxelsFsh = `
+    uniform sampler2D uCameraTex;
+    varying float vPotential;
+    varying vec3 vScreenPosition;
+    varying float vColor;
+    void main() {
+      if (vPotential > 0.0) {
+        // gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), 0.2 + vPotential);
+        // gl_FragColor = vec4(vec3(1.0), 0.1);
+        vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+        gl_FragColor = texture2D(uCameraTex, uv);
+        gl_FragColor.rgb += 0.2;
+        gl_FragColor.a = 1.0;
+      } else {
+        discard;
+      }
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uPotentialsTex: {
+        type: 't',
+        value: potentialsTexture,
+      },
+      uCameraTex: {
+        type: 't',
+        value: cameraTarget.texture,
+      },
+    },
+    vertexShader: voxelsVsh,
+    fragmentShader: voxelsFsh,
+    transparent: true,
   });
 })();
 
@@ -1574,7 +1624,7 @@ const voxelsMesh = (() => {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('pos', new THREE.BufferAttribute(poss, 3));
-  const material = voxelsMaterial;
+  const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
@@ -1648,15 +1698,6 @@ const voxelsMesh = (() => {
 voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
 container.add(voxelsMesh);
 
-const cameraTexSize = 1024;
-const cameraTarget = new THREE.WebGLRenderTarget(cameraTexSize, cameraTexSize, {
-  minFilter: THREE.LinearFilter,
-  magFilter: THREE.NearestFilter,
-  format: THREE.RGBAFormat,
-  // type: THREE.FloatType,
-  depthBuffer: true,
-  stencilBuffer: false,
-});
 const marchCubesTexSize = 4096;
 const marchCubesTexTriangleSize = 128;
 const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
@@ -1716,30 +1757,27 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
 });
 const marchCubesTexturedMaterial = new THREE.ShaderMaterial({
   uniforms: {
-    uCameraTex: {
+    uMarchCubesTex: {
       type: 't',
       value: marchCubesRenderTarget.texture,
     },
   },
   vertexShader: `\
     attribute vec3 barycentric;
-    varying vec3 vScreenPosition;
     varying vec2 vUv;
     void main() {
       vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
       gl_Position = projectionMatrix * modelViewPosition;
-      vScreenPosition = gl_Position.xyz/gl_Position.w;
       vUv = uv;
     }
   `,
   fragmentShader: `\
-    uniform sampler2D uCameraTex;
-    varying vec3 vScreenPosition;
+    uniform sampler2D uMarchCubesTex;
     varying vec2 vUv;
 
     void main() {
-      // vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
-      gl_FragColor = texture2D(uCameraTex, vUv);
+      gl_FragColor = texture2D(uMarchCubesTex, vUv);
+      gl_FragColor.rgb += 0.2;
       gl_FragColor.a = 1.0;
     }
   `,
@@ -1970,11 +2008,14 @@ const _renderDepth = (target, camera) => {
 function animate(timestamp, frame, referenceSpace) {
   const oldMarchCubesMeshVisible = marchCubesMesh.visible;
   marchCubesMesh.visible = false;
+  const oldVoxelsMeshVisible = voxelsMesh.visible;
+  voxelsMesh.visible = false;
 
   renderer.setRenderTarget(cameraTarget);
   renderer.render(scene, camera);
 
   marchCubesMesh.visible = oldMarchCubesMeshVisible;
+  voxelsMesh.visible = oldVoxelsMeshVisible;
 
   renderer.setRenderTarget(marchCubesRenderTarget);
   renderer.render(marchCubesRenderScene, camera);
