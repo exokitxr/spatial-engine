@@ -927,7 +927,7 @@ const raycastCamera = cursorCamera.clone();
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
+const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 2);
 directionalLight.position.set(0.5, 1, 0.5);
 scene.add(directionalLight);
 
@@ -1973,9 +1973,9 @@ const marchCubesRenderMesh = (() => {
 const marchCubesRenderScene = new THREE.Scene();
 marchCubesRenderScene.add(marchCubesRenderMesh);
 
-const testMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
-testMesh.position.set(1, 1, 0);
-scene.add(testMesh);
+/* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
+textureMesh.position.set(1, 1, 0);
+scene.add(textureMesh); */
 
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
@@ -2032,8 +2032,8 @@ const _hideUiMeshes = () => {
   voxelsMesh.visible = false;
   const oldMarchCubesMeshVisible = marchCubesMesh.visible;
   marchCubesMesh.visible = false;
-  const oldTestMeshVisible = testMesh.visible;
-  testMesh.visible = false;
+  // const oldTextureMeshVisible = textureMesh.visible;
+  // textureMesh.visible = false;
 
   return () => {
     raycastMesh.visible = oldRaycastMeshVisible;
@@ -2041,7 +2041,7 @@ const _hideUiMeshes = () => {
     gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
     voxelsMesh.visible = oldVoxelsMeshVisible;
     marchCubesMesh.visible = oldMarchCubesMeshVisible;
-    testMesh.visible = oldTestMeshVisible;
+    // textureMesh.visible = oldTextureMeshVisible;
   };
 };
 const _renderDepth = (target, camera) => {
