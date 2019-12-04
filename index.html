@@ -1555,7 +1555,7 @@ class XRChunk {
         varying vec2 vBC;
         varying vec3 vPosition;
         void main() {
-          float ux = (coord.x + coord.y*${(width*depth).toFixed(8)} + coord.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
+          float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
           vec2 uv = vec2(ux, 0.5);
           vPotential = texture2D(uPotentialsTex, uv).r;
           vBC = barycentric;
@@ -1640,7 +1640,7 @@ class XRChunk {
         varying vec3 vPosition;
         varying vec4 vColor;
         void main() {
-          float ux = (coord.x + coord.y*${(width*depth).toFixed(8)} + coord.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
+          float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
           vec2 voxelUv = vec2(ux, 0.5);
           float potential = texture2D(uPotentialsTex, voxelUv).r;
           if (potential > 0.0) {
