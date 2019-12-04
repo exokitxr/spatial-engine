@@ -889,7 +889,7 @@ const voxelSize = 0.1;
 const potentialClearValue = -0.2;
 const potentialSetValue = 0.7;
 
-const _getPotentialIndex = (x, y, z) => x + y*(width+1)*(depth+1) + z*(width+1);
+const _getPotentialIndex = (x, y, z) => x + y*(width+2)*(depth+2) + z*(width+2);
 
 const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
@@ -1537,15 +1537,15 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
   stencilBuffer: false,
 });
 
-const workingPotentials = new Float32Array((width+1)*(height+1)*(depth+1));
+const workingPotentials = new Float32Array((width+2)*(height+2)*(depth+2));
 class XRChunk {
   constructor(position) {
     this.object = new THREE.Object3D();
     this.object.position.copy(position);
     container.add(this.object);
 
-    const potentials = new Float32Array((width+1)*(height+1)*(depth+1));
-    const potentialsTexture = new THREE.DataTexture(potentials, (width+1)*(height+1)*(depth+1), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+    const potentials = new Float32Array((width+2)*(height+2)*(depth+2));
+    const potentialsTexture = new THREE.DataTexture(potentials, (width+2)*(height+2)*(depth+2), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
     const voxelsMaterial = (() => {
       const voxelsVsh = `
         attribute vec3 coord;
@@ -1555,7 +1555,7 @@ class XRChunk {
         varying vec2 vBC;
         varying vec3 vPosition;
         void main() {
-          float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
+          float ux = (coord.x + coord.y*${((width+2)*(depth+2)).toFixed(8)} + coord.z*${(width+2).toFixed(8)} + 0.5) / ${((width+2)*(height+2)*(depth+2)).toFixed(8)};
           vec2 uv = vec2(ux, 0.5);
           vPotential = texture2D(uPotentialsTex, uv).r;
           vBC = barycentric;
@@ -1640,7 +1640,7 @@ class XRChunk {
         varying vec3 vPosition;
         varying vec4 vColor;
         void main() {
-          float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
+          float ux = (coord.x + coord.y*${((width+2)*(depth+2)).toFixed(8)} + coord.z*${(width+2).toFixed(8)} + 0.5) / ${((width+2)*(height+2)*(depth+2)).toFixed(8)};
           vec2 voxelUv = vec2(ux, 0.5);
           float potential = texture2D(uPotentialsTex, voxelUv).r;
           if (potential > 0.0) {
@@ -1785,9 +1785,9 @@ class XRChunk {
               .divideScalar(voxelSize)
 
             if (
-              localVector.x >= 0 && (localVector.x + 0.5) < (width+1) &&
-              localVector.y >= 0 && (localVector.y + 0.5) < (height+1) &&
-              localVector.z >= 0 && (localVector.z + 0.5) < (depth+1)
+              localVector.x >= 0 && (localVector.x + 0.5) < (width+2) &&
+              localVector.y >= 0 && (localVector.y + 0.5) < (height+2) &&
+              localVector.z >= 0 && (localVector.z + 0.5) < (depth+2)
             ) {
               workingPotentials[_getPotentialIndex(
                 Math.floor(localVector.x + 0.5),
@@ -1824,9 +1824,9 @@ class XRChunk {
             }
           }
         } */
-        for (let x = 0; x <= width; x++) {
-          for (let y = 0; y <= height; y++) {
-            for (let z = 0; z <= depth; z++) {
+        for (let x = 0; x < width+2; x++) {
+          for (let y = 0; y < height+2; y++) {
+            for (let z = 0; z < depth+2; z++) {
               const k = _getPotentialIndex(x, y, z);
               potentials[k] = workingPotentials[k];
             }
@@ -1980,7 +1980,7 @@ class XRChunk {
           running = true;
           worker.request({
             method: 'march',
-            dims: Float32Array.from([width+1, height+1, depth+1]),
+            dims: Float32Array.from([width+2, height+2, depth+2]),
             potential: potentials,
             shift: Float32Array.from([0, 0, 0]),
             marchCubesTexSize,
