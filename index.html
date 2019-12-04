@@ -854,6 +854,7 @@ import './Reflector.js';
 
 import ModelLoader from 'https://model-loader.exokit.org/model-loader.js';
 import avatarModels from 'https://avatar-models.exokit.org/avatar-models.js';
+import itemModels from 'https://item-models.exokit.org/item-models.js';
 
 const worker = (() => {
   let cbs = [];
@@ -1155,6 +1156,15 @@ container.add(boxMesh);
   const model = object.scene;
   model.position.x = 0.5;
   model.position.z = 0.5;
+  container.add(model);
+})();
+(async () => {
+  const url = itemModels[927];
+  const src = `https://item-models.exokit.org/glb/${url.replace(/\.fbx$/, '.glb')}`;
+  const object = await ModelLoader.loadModelUrl(src);
+  const model = object.scene;
+  model.position.x = -0.5;
+  // model.position.z = 0.5;
   container.add(model);
 })();
 
