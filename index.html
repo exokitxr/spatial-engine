@@ -891,6 +891,7 @@ const localVector3 = new THREE.Vector3();
 const localVector4 = new THREE.Vector3();
 const localVector5 = new THREE.Vector3();
 const localVector2D = new THREE.Vector2();
+const localVector4D = new THREE.Vector4();
 const localQuaternion = new THREE.Quaternion();
 const localQuaternion2 = new THREE.Quaternion();
 const localMatrix = new THREE.Matrix4();
@@ -1694,17 +1695,18 @@ const voxelsMesh = (() => {
         
         localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
         localVector.copy(localRaycaster.ray.origin)
-          .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z));
+          .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
+          .divideScalar(voxelSize)
 
         if (
-          localVector.x >= 0 && localVector.x <= width * voxelSize &&
-          localVector.y >= 0 && localVector.y <= height * voxelSize &&
-          localVector.z >= 0 && localVector.z <= depth * voxelSize
+          localVector.x >= 0 && (localVector.x + 0.5) < width &&
+          localVector.y >= 0 && (localVector.y + 0.5) < height &&
+          localVector.z >= 0 && (localVector.z + 0.5) < depth
         ) {
           workingPotentials[_getPotentialIndex(
-            Math.floor(localVector.x/voxelSize + 0.5),
-            Math.floor(localVector.y/voxelSize + 0.5),
-            Math.floor(localVector.z/voxelSize + 0.5)
+            Math.floor(localVector.x + 0.5),
+            Math.floor(localVector.y + 0.5),
+            Math.floor(localVector.z + 0.5)
           )] = potentialSetValue;
         }
         i++;
@@ -1745,7 +1747,7 @@ voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
 container.add(voxelsMesh);
 
 const marchCubesTexSize = 4096;
-const marchCubesTexTriangleSize = 128;
+const marchCubesTexTriangleSize = 32;
 const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
 const marchCubesRenderTarget = new THREE.WebGLRenderTarget(marchCubesTexSize, marchCubesTexSize, {
   minFilter: THREE.LinearFilter,
@@ -1792,7 +1794,7 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
       gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
     }
   `,
-  side: THREE.BackSide,
+  // side: THREE.BackSide,
   /* polygonOffset: true,
   polygonOffsetFactor: -1,
   polygonOffsetUnits: -4, */
@@ -1827,7 +1829,7 @@ const marchCubesTexturedMaterial = new THREE.ShaderMaterial({
       gl_FragColor.a = 1.0;
     }
   `,
-  side: THREE.BackSide,
+  // side: THREE.BackSide,
   /* polygonOffset: true,
   polygonOffsetFactor: -1,
   polygonOffsetUnits: -4, */
@@ -1887,6 +1889,7 @@ const marchCubesMesh = (() => {
       }).then(res => {
         if (res.positions.length > 0) {
           const positionArray = res.positions;
+          const coordsArray = res.coords;
           const indexArray = res.faces;
 
           const positions = new Float32Array(indexArray.length*3);
@@ -1922,7 +1925,14 @@ const marchCubesMesh = (() => {
             barycentrics[baseIndex+7] = 0;
             barycentrics[baseIndex+8] = 1;
 
-            const baseI = i/3;
+            // const baseI = i/3;
+            const coord = localVector4D.fromArray(coordsArray, i/3*4);
+            /* const avg = localVector.fromArray(positionArray, baseA)
+              .add(localVector2.fromArray(positionArray, baseB))
+              .add(localVector2.fromArray(positionArray, baseC))
+              .divideScalar(3)
+            const baseI = _getPotentialIndexScaled(Math.floor(avg.x), Math.floor(avg.y), Math.floor(avg.z), 1); */
+            const baseI = coord.w*width*height*depth + _getPotentialIndex(coord.x, coord.y, coord.z);
             const baseIndex2 = i*2;
             if ((baseI%2) === 0) {
               const cx = (baseI/2)%(marchCubesTexSquares);
@@ -1973,9 +1983,9 @@ const marchCubesRenderMesh = (() => {
 const marchCubesRenderScene = new THREE.Scene();
 marchCubesRenderScene.add(marchCubesRenderMesh);
 
-/* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
+const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
 textureMesh.position.set(1, 1, 0);
-scene.add(textureMesh); */
+scene.add(textureMesh);
 
 const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
@@ -2032,8 +2042,8 @@ const _hideUiMeshes = () => {
   voxelsMesh.visible = false;
   const oldMarchCubesMeshVisible = marchCubesMesh.visible;
   marchCubesMesh.visible = false;
-  // const oldTextureMeshVisible = textureMesh.visible;
-  // textureMesh.visible = false;
+  const oldTextureMeshVisible = textureMesh.visible;
+  textureMesh.visible = false;
 
   return () => {
     raycastMesh.visible = oldRaycastMeshVisible;
@@ -2041,7 +2051,7 @@ const _hideUiMeshes = () => {
     gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
     voxelsMesh.visible = oldVoxelsMeshVisible;
     marchCubesMesh.visible = oldMarchCubesMeshVisible;
-    // textureMesh.visible = oldTextureMeshVisible;
+    textureMesh.visible = oldTextureMeshVisible;
   };
 };
 const _renderDepth = (target, camera) => {
@@ -2067,13 +2077,15 @@ function animate(timestamp, frame, referenceSpace) {
 
     if (meshingTextureSwitchWrap.classList.contains('on')) {
       renderer.setRenderTarget(marchCubesRenderTarget);
+      renderer.autoClear = false;
       renderer.render(marchCubesRenderScene, camera);
+      renderer.autoClear = true;
     }
 
     unhideUiMeshes();
+    renderer.setRenderTarget(null);
   }
 
-  renderer.setRenderTarget(null);
   renderer.render(scene, camera);
 }
 renderer.setAnimationLoop(animate);
