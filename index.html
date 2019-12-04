@@ -1573,14 +1573,14 @@ const voxelsTexturedMaterial = (() => {
     attribute vec3 positionCenter;
     uniform sampler2D uPotentialsTex;
     uniform sampler2D uCameraTex;
-    varying float vPotential;
+    // varying float vPotential;
     varying vec3 vPosition;
     varying vec4 vColor;
     void main() {
       float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 voxelUv = vec2(ux, 0.5);
-      vPotential = texture2D(uPotentialsTex, voxelUv).r;
-      if (vPotential > 0.0) {
+      float potential = texture2D(uPotentialsTex, voxelUv).r;
+      if (potential > 0.0) {
         vec4 projectionPositionCenter = projectionMatrix * modelViewMatrix * vec4(positionCenter, 1.0);
         vec3 screenPosition = (projectionPositionCenter.xyz/projectionPositionCenter.w)/2.0+0.5;
         vec2 uv = screenPosition.xy;
@@ -1597,7 +1597,7 @@ const voxelsTexturedMaterial = (() => {
   `;
   const voxelsFsh = `
     uniform sampler2D uCameraTex;
-    varying float vPotential;
+    // varying float vPotential;
     varying vec3 vPosition;
     varying vec4 vColor;
 
