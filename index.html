@@ -836,8 +836,8 @@ header > .login-form.phase-3 > .phaseless-content
           <div class=switch id=meshing-switch></div>
           Meshing
         </label>
-        <label class=switch-wrap id=mesh-texture-switch-wrap>
-          <div class=switch id=mesh-texture-switch></div>
+        <label class=switch-wrap id=meshing-texture-switch-wrap>
+          <div class=switch id=meshing-texture-switch></div>
           Mesh texture
         </label>
       </div>
@@ -1188,10 +1188,10 @@ meshingSwitchWrap.addEventListener('click', () => {
   meshingSwitchWrap.classList.toggle('on');
   marchCubesMesh.visible = meshingSwitchWrap.classList.contains('on');
 });
-const meshTextureSwitchWrap = document.getElementById('mesh-texture-switch-wrap');
-meshTextureSwitchWrap.addEventListener('click', () => {
-  meshTextureSwitchWrap.classList.toggle('on');
-  const enabled = meshTextureSwitchWrap.classList.contains('on');
+const meshingTextureSwitchWrap = document.getElementById('meshing-texture-switch-wrap');
+meshingTextureSwitchWrap.addEventListener('click', () => {
+  meshingTextureSwitchWrap.classList.toggle('on');
+  const enabled = meshingTextureSwitchWrap.classList.contains('on');
   marchCubesMesh.material = enabled ? marchCubesTexturedMaterial : marchCubesMaterial;
 });
 
@@ -1853,7 +1853,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
 });
 const marchCubesMesh = (() => {
   const geometry = new THREE.BufferGeometry();
-  const material = meshTextureSwitchWrap.classList.contains('on') ? marchCubesTexturedMaterial : marchCubesMaterial;
+  const material = meshingTextureSwitchWrap.classList.contains('on') ? marchCubesTexturedMaterial : marchCubesMaterial;
   const mesh = new THREE.Mesh(geometry, material);
   mesh.scale.set(1, 1, 1).multiplyScalar(voxelSize);
   mesh.frustumCulled = false;
@@ -2038,19 +2038,23 @@ const _renderDepth = (target, camera) => {
   renderer.setRenderTarget(null);
 };
 function animate(timestamp, frame, referenceSpace) {
-  const oldMarchCubesMeshVisible = marchCubesMesh.visible;
-  marchCubesMesh.visible = false;
-  const oldVoxelsMeshVisible = voxelsMesh.visible;
-  voxelsMesh.visible = false;
+  if (meshingTextureSwitchWrap.classList.contains('on') || voxelTextureSwitchWrap.classList.contains('on')) {
+    const oldMarchCubesMeshVisible = marchCubesMesh.visible;
+    marchCubesMesh.visible = false;
+    const oldVoxelsMeshVisible = voxelsMesh.visible;
+    voxelsMesh.visible = false;
 
-  renderer.setRenderTarget(cameraTarget);
-  renderer.render(scene, camera);
+    renderer.setRenderTarget(cameraTarget);
+    renderer.render(scene, camera);
 
-  marchCubesMesh.visible = oldMarchCubesMeshVisible;
-  voxelsMesh.visible = oldVoxelsMeshVisible;
+    marchCubesMesh.visible = oldMarchCubesMeshVisible;
+    voxelsMesh.visible = oldVoxelsMeshVisible;
 
-  renderer.setRenderTarget(marchCubesRenderTarget);
-  renderer.render(marchCubesRenderScene, camera);
+    if (meshingTextureSwitchWrap.classList.contains('on')) {
+      renderer.setRenderTarget(marchCubesRenderTarget);
+      renderer.render(marchCubesRenderScene, camera);
+    }
+  }
 
   renderer.setRenderTarget(null);
   renderer.render(scene, camera);
