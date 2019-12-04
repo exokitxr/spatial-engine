@@ -16,7 +16,7 @@ const NUM_CELLS_OVERSCAN = NUM_CELLS + OVERSCAN;
 const NUM_CHUNKS_HEIGHT = 10;                 
 const NUM_CELLS_HEIGHT = NUM_CELLS * NUM_CHUNKS_HEIGHT;
 const NUM_CELLS_OVERSCAN_Y = NUM_CELLS_HEIGHT + OVERSCAN;
-let noiserOffset = 0;
+// let noiserOffset = 0;
 self.wasmModule = (moduleName, moduleFn) => {
   // console.log('wasm module', moduleName, moduleFn);
   if (moduleName === 'mc') {
@@ -33,7 +33,7 @@ self.wasmModule = (moduleName, moduleFn) => {
       onRuntimeInitialized: () => {
         // Module = localModule;
 
-        noiserOffset = self.LocalModule._doNoiser(7);
+        // noiserOffset = self.LocalModule._doNoiser(7);
 
         loaded = true;
         _flushMessages();
@@ -71,7 +71,7 @@ let loaded = false;
 const _handleMessage = data => {
   const {method} = data;
   switch (method) {
-    case 'getBiomeColors': {
+    /* case 'getBiomeColors': {
       // const {x, z} = data;
 
       const allocator = new Allocator();
@@ -168,7 +168,7 @@ const _handleMessage = data => {
       });
       allocator.freeAll();
       break;
-    }
+    } */
     case 'march': {
       const allocator = new Allocator();
 
@@ -185,8 +185,10 @@ const _handleMessage = data => {
       shift[2] = shiftData[2];
       const indexOffset = 0;
       const positions = allocator.alloc(Float32Array, 1024*1024/Float32Array.BYTES_PER_ELEMENT);
+      const coords = allocator.alloc(Float32Array, 1024*1024/Float32Array.BYTES_PER_ELEMENT);
       const faces = allocator.alloc(Uint32Array, 1024*1024/Uint32Array.BYTES_PER_ELEMENT);
       const positionIndex = allocator.alloc(Uint32Array, 1);
+      const coordIndex = allocator.alloc(Uint32Array, 1);
       const faceIndex = allocator.alloc(Uint32Array, 1);
       self.LocalModule._doMarchingCubes(
         dims.offset,
@@ -194,13 +196,16 @@ const _handleMessage = data => {
         shift.offset,
         indexOffset,
         positions.offset,
+        coords.offset,
         faces.offset,
         positionIndex.offset,
+        coordIndex.offset,
         faceIndex.offset
       );
       self.postMessage({
         result: {
           positions: positions.slice(0, positionIndex[0]),
+          coords: coords.slice(0, coordIndex[0]),
           faces: faces.slice(0, faceIndex[0]),
         },
       });
