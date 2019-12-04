@@ -1532,14 +1532,20 @@ const workingPotentials = new Float32Array(width*height*depth);
 const voxelsMaterial = (() => {
   const voxelsVsh = `
     attribute vec3 coord;
+    attribute vec2 barycentric;
     uniform sampler2D uPotentialsTex;
     varying float vPotential;
+    varying vec2 vBC;
+    varying vec3 vPosition;
     void main() {
       float ux = (coord.x + coord.y*${(width*depth).toFixed(8)} + coord.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 uv = vec2(ux, 0.5);
       vPotential = texture2D(uPotentialsTex, uv).r;
+      vBC = barycentric;
       if (vPotential > 0.0) {
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+        vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+        vPosition = modelViewPosition.xyz;
+        gl_Position = projectionMatrix * modelViewPosition;
       } else {
         gl_Position = vec4(0.0);
       }
@@ -1547,11 +1553,47 @@ const voxelsMaterial = (() => {
   `;
   const voxelsFsh = `
     varying float vPotential;
+    varying vec2 vBC;
+    varying vec3 vPosition;
 
     vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
+    vec3 lightDirection = vec3(0.0, 0.0, 1.0);
+
+    float edgeFactor() {
+      float f = 0.0;
+      if (vBC.x <= 0.02) {
+        f = max(1.0, f);
+      } else {
+        f = max(1.0 - (vBC.x-0.02)/0.02, f);
+      }
+      if (vBC.x >= 0.98) {
+        f = max(1.0, f);
+      } else {
+        f = max((vBC.x-0.96)/0.02, f);
+      }
+      if (vBC.y <= 0.02) {
+        f = max(1.0, f);
+      } else {
+        f = max(1.0 - (vBC.y-0.02)/0.02, f);
+      }
+      if (vBC.y >= 0.98) {
+        f = max(1.0, f);
+      } else {
+        f = max((vBC.y-0.96)/0.02, f);
+      }
+      return f;
+    }
 
     void main() {
-      gl_FragColor = vec4(color, vPotential);
+      float barycentricFactor = (0.2 + edgeFactor() * 0.8);
+      vec3 xTangent = dFdx( vPosition );
+      vec3 yTangent = dFdy( vPosition );
+      vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
+      float lightFactor = dot(faceNormal, lightDirection);
+      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.5 + barycentricFactor*0.5);
+      // gl_FragColor = vBC;
+      // gl_FragColor.a = 1.0;
+      // gl_FragColor = vec4(color, vPotential);
     }
   `;
   return new THREE.ShaderMaterial({
@@ -1564,7 +1606,10 @@ const voxelsMaterial = (() => {
     vertexShader: voxelsVsh,
     fragmentShader: voxelsFsh,
     transparent: true,
-    depthWrite: false,
+    // depthWrite: false,
+    extensions: {
+      derivatives: true,
+    },
   });
 })();
 const voxelsTexturedMaterial = (() => {
@@ -1640,10 +1685,32 @@ const voxelsTexturedMaterial = (() => {
 
 const _getPotentialIndex = (x, y, z) => x + y*width*depth + z*width;
 const voxelsMesh = (() => {
-  const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
+  const  cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
     // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
     .toNonIndexed();
+  const cubeBarycentrics = new Float32Array(cubeGeometry.attributes.position.array.length/3*4);
+  for (let i = 0; i < cubeBarycentrics.length/(2*6); i++) {
+    cubeBarycentrics[i*12] = 0;
+    cubeBarycentrics[i*12+1] = 1;
+
+    cubeBarycentrics[i*12+2] = 0;
+    cubeBarycentrics[i*12+3] = 0;
+
+    cubeBarycentrics[i*12+4] = 1;
+    cubeBarycentrics[i*12+5] = 1;
+
+    cubeBarycentrics[i*12+6] = 0;
+    cubeBarycentrics[i*12+7] = 0;
+
+    cubeBarycentrics[i*12+8] = 1;
+    cubeBarycentrics[i*12+9] = 0;
+
+    cubeBarycentrics[i*12+10] = 1;
+    cubeBarycentrics[i*12+11] = 1;
+  }
+  cubeGeometry.setAttribute('barycentric', new THREE.BufferAttribute(cubeBarycentrics, 2));
   const positions = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
+  const barycentrics = new Float32Array(cubeGeometry.attributes.barycentric.array.length*width*height*depth);
   const coords = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
   const positionCenters = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
   let i = 0;
@@ -1653,6 +1720,7 @@ const voxelsMesh = (() => {
         const newCubeGeometry = cubeGeometry.clone()
           .applyMatrix(localMatrix.makeTranslation(x*voxelSize, y*voxelSize, z*voxelSize));
         positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
+        barycentrics.set(newCubeGeometry.attributes.barycentric.array, i*newCubeGeometry.attributes.barycentric.array.length);
         const offset = Float32Array.from([x, y, z]);
         for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
           coords.set(offset, i*newCubeGeometry.attributes.position.array.length + j*3);
@@ -1667,6 +1735,7 @@ const voxelsMesh = (() => {
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 2));
   geometry.setAttribute('coord', new THREE.BufferAttribute(coords, 3));
   geometry.setAttribute('positionCenter', new THREE.BufferAttribute(positionCenters, 3));
   const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
