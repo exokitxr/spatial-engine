@@ -2004,9 +2004,7 @@ setInterval(() => {
   marchCubesMesh.update();
 }, 100);
 
-const _renderDepth = (target, camera) => {
-  // const oldColorMeshVisible = colorMesh.visible;
-  // colorMesh.visible = false;
+const _hideUiMeshes = () => {
   const oldRaycastMeshVisible = raycastMesh.visible;
   raycastMesh.visible = false;
   const oldParticlesMeshVisible = particlesMesh.visible;
@@ -2020,6 +2018,18 @@ const _renderDepth = (target, camera) => {
   const oldTestMeshVisible = testMesh.visible;
   testMesh.visible = false;
 
+  return () => {
+    raycastMesh.visible = oldRaycastMeshVisible;
+    particlesMesh.visible = oldParticlesMeshVisible;
+    gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
+    voxelsMesh.visible = oldVoxelsMeshVisible;
+    marchCubesMesh.visible = oldMarchCubesMeshVisible;
+    testMesh.visible = oldTestMeshVisible;
+  };
+};
+const _renderDepth = (target, camera) => {
+  const unhideUiMeshes = _hideUiMeshes();
+
   scene.overrideMaterial = depthMaterial;
   renderer.setRenderTarget(target);
   renderer.setClearColor(localColor.set(0, 0, 0), 1);
@@ -2027,33 +2037,23 @@ const _renderDepth = (target, camera) => {
   scene.overrideMaterial = null;
   renderer.setClearColor(localColor.set(0, 0, 0), 0);
 
-  // colorMesh.visible = oldColorMeshVisible;
-  raycastMesh.visible = oldRaycastMeshVisible;
-  particlesMesh.visible = oldParticlesMeshVisible;
-  gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
-  voxelsMesh.visible = oldVoxelsMeshVisible;
-  marchCubesMesh.visible = oldMarchCubesMeshVisible;
-  testMesh.visible = oldTestMeshVisible;
+  unhideUiMeshes();
 
   renderer.setRenderTarget(null);
 };
 function animate(timestamp, frame, referenceSpace) {
   if (meshingTextureSwitchWrap.classList.contains('on') || voxelTextureSwitchWrap.classList.contains('on')) {
-    const oldMarchCubesMeshVisible = marchCubesMesh.visible;
-    marchCubesMesh.visible = false;
-    const oldVoxelsMeshVisible = voxelsMesh.visible;
-    voxelsMesh.visible = false;
+    const unhideUiMeshes = _hideUiMeshes();
 
     renderer.setRenderTarget(cameraTarget);
     renderer.render(scene, camera);
-
-    marchCubesMesh.visible = oldMarchCubesMeshVisible;
-    voxelsMesh.visible = oldVoxelsMeshVisible;
 
     if (meshingTextureSwitchWrap.classList.contains('on')) {
       renderer.setRenderTarget(marchCubesRenderTarget);
       renderer.render(marchCubesRenderScene, camera);
     }
+
+    unhideUiMeshes();
   }
 
   renderer.setRenderTarget(null);
