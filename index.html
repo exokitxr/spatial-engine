@@ -1535,11 +1535,14 @@ const voxelsMaterial = (() => {
     uniform sampler2D uPotentialsTex;
     varying float vPotential;
     void main() {
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
-
       float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 uv = vec2(ux, 0.5);
       vPotential = texture2D(uPotentialsTex, uv).r;
+      if (vPotential > 0.0) {
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.);
+      } else {
+        gl_Position = vec4(0.0);
+      }
     }
   `;
   const voxelsFsh = `
@@ -1548,11 +1551,7 @@ const voxelsMaterial = (() => {
     vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
 
     void main() {
-      if (vPotential > 0.0) {
-        gl_FragColor = vec4(color, vPotential);
-      } else {
-        discard;
-      }
+      gl_FragColor = vec4(color, vPotential);
     }
   `;
   return new THREE.ShaderMaterial({
@@ -1581,16 +1580,19 @@ const voxelsTexturedMaterial = (() => {
       float ux = (pos.x + pos.y*${(width*depth).toFixed(8)} + pos.z*${(width).toFixed(8)} + 0.5) / ${(width*height*depth).toFixed(8)};
       vec2 voxelUv = vec2(ux, 0.5);
       vPotential = texture2D(uPotentialsTex, voxelUv).r;
+      if (vPotential > 0.0) {
+        vec4 projectionPositionCenter = projectionMatrix * modelViewMatrix * vec4(positionCenter, 1.0);
+        vec3 screenPosition = (projectionPositionCenter.xyz/projectionPositionCenter.w)/2.0+0.5;
+        vec2 uv = screenPosition.xy;
+        vColor = texture2D(uCameraTex, uv);
+        // vColor = vec4(1.0, 0.0, 1.0, 1.0);
 
-      vec4 projectionPositionCenter = projectionMatrix * modelViewMatrix * vec4(positionCenter, 1.0);
-      vec3 screenPosition = (projectionPositionCenter.xyz/projectionPositionCenter.w)/2.0+0.5;
-      vec2 uv = screenPosition.xy;
-      vColor = texture2D(uCameraTex, uv);
-      // vColor = vec4(1.0, 0.0, 1.0, 1.0);
-
-      vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
-      vPosition = modelViewPosition.xyz;
-      gl_Position = projectionMatrix * modelViewPosition;
+        vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+        vPosition = modelViewPosition.xyz;
+        gl_Position = projectionMatrix * modelViewPosition;
+      } else {
+        gl_Position = vec4(0.0);
+      }
     }
   `;
   const voxelsFsh = `
@@ -1602,22 +1604,18 @@ const voxelsTexturedMaterial = (() => {
     vec3 lightDirection = vec3(0.0, 0.0, 1.0);
 
     void main() {
-      if (vPotential > 0.0) {
-        /* gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), 0.2 + vPotential);
-        gl_FragColor = vec4(vec3(1.0), 0.1);
-        vec2 uv = vScreenPosition.xy;
-        gl_FragColor = texture2D(uCameraTex, uv); */
+      /* gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), 0.2 + vPotential);
+      gl_FragColor = vec4(vec3(1.0), 0.1);
+      vec2 uv = vScreenPosition.xy;
+      gl_FragColor = texture2D(uCameraTex, uv); */
 
-        vec3 xTangent = dFdx( vPosition );
-        vec3 yTangent = dFdy( vPosition );
-        vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
-        float lightFactor = dot(faceNormal, lightDirection);
+      vec3 xTangent = dFdx( vPosition );
+      vec3 yTangent = dFdy( vPosition );
+      vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
+      float lightFactor = dot(faceNormal, lightDirection);
 
-        gl_FragColor = vColor * lightFactor;
-        gl_FragColor.a = 1.0;
-      } else {
-        discard;
-      }
+      gl_FragColor.rgb = vColor.rgb * lightFactor;
+      gl_FragColor.a = 1.0;
     }
   `;
   return new THREE.ShaderMaterial({
