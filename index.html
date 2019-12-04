@@ -814,9 +814,13 @@ header > .login-form.phase-3 > .phaseless-content
       <div class=sidebar>
         <label class="switch-wrap on" id=gpu-switch-wrap>
           <div class=switch id=gpu-switch></div>
-          GPU
+          GPU pointcloud
         </label>
-        <label class="switch-wrap on" id=raycast-switch-wrap>
+        <label class=switch-wrap id=cpu-switch-wrap>
+          <div class=switch id=cpu-switch></div>
+          CPU pointcloud
+        </label>
+        <label class=switch-wrap id=raycast-switch-wrap>
           <div class=switch id=raycast-switch></div>
           Raycast
         </label>
@@ -1157,9 +1161,12 @@ container.add(boxMesh);
 const gpuSwitchWrap = document.getElementById('gpu-switch-wrap');
 gpuSwitchWrap.addEventListener('click', () => {
   gpuSwitchWrap.classList.toggle('on');
-  const enabled = gpuSwitchWrap.classList.contains('on');
-  particlesMesh.visible = !enabled;
-  gpuParticlesMesh.visible = enabled;
+  gpuParticlesMesh.visible = gpuSwitchWrap.classList.contains('on');
+});
+const cpuSwitchWrap = document.getElementById('cpu-switch-wrap');
+cpuSwitchWrap.addEventListener('click', () => {
+  cpuSwitchWrap.classList.toggle('on');
+  particlesMesh.visible = cpuSwitchWrap.classList.contains('on');
 });
 const raycastSwitchWrap = document.getElementById('raycast-switch-wrap');
 raycastSwitchWrap.addEventListener('click', () => {
@@ -1247,6 +1254,7 @@ const raycastMesh = (() => {
   mesh.frustumCulled = false;
   return mesh;
 })();
+raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
 container.add(raycastMesh);
 
 const particlesMesh = (() => {
@@ -1291,7 +1299,7 @@ const particlesMesh = (() => {
   };
   return mesh;
 })();
-particlesMesh.visible = !gpuSwitchWrap.classList.contains('on');
+particlesMesh.visible = cpuSwitchWrap.classList.contains('on');
 container.add(particlesMesh);
 
 const gpuParticlesMeshMaterial = (() => {
@@ -1965,28 +1973,31 @@ function DecodeFloatRGBA(rgba, i) {
   // }
 }
 window.addEventListener('mousemove', e => {
-  const rect = renderer.domElement.getBoundingClientRect();
+  if (raycastSwitchWrap.classList.contains('on')) {
+    const rect = renderer.domElement.getBoundingClientRect();
 
-  const xFactor = (e.clientX - rect.left) / rect.width;
-  const yFactor = -(e.clientY - rect.top) / rect.height;
-  if (xFactor >= 0 && xFactor <= 1 && -yFactor >= 0 && -yFactor <= 1) {
-    localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
-    raycastCamera.position.copy(localRaycaster.ray.origin);
-    raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
-    _renderDepth(raycastTarget, raycastCamera);
+    const xFactor = (e.clientX - rect.left) / rect.width;
+    const yFactor = -(e.clientY - rect.top) / rect.height;
+    if (xFactor >= 0 && xFactor <= 1 && -yFactor >= 0 && -yFactor <= 1) {
+      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
+      raycastCamera.position.copy(localRaycaster.ray.origin);
+      raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
+      _renderDepth(raycastTarget, raycastCamera);
 
-    renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, pbuf, 0);
-    const z = DecodeFloatRGBA(pbuf, 0);
-    raycastMesh.position.copy(localRaycaster.ray.origin)
-      .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-    // console.log('read', z, raycastMesh.position.y, pbuf.join(','));
+      renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, pbuf, 0);
+      const z = DecodeFloatRGBA(pbuf, 0);
+      raycastMesh.position.copy(localRaycaster.ray.origin)
+        .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
+      // console.log('read', z, raycastMesh.position.y, pbuf.join(','));
+    }
   }
 });
 
 setInterval(() => {
   if (gpuSwitchWrap.classList.contains('on')) {
     gpuParticlesMesh.update();
-  } else {
+  }
+  if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
   voxelsMesh.update();
