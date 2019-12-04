@@ -1557,7 +1557,7 @@ const voxelsTexturedMaterial = (() => {
 
       vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
       vec4 projectionPosition = projectionMatrix * modelViewPosition;
-      vScreenPosition = projectionPosition.xyz/projectionPosition.w;
+      vScreenPosition = (projectionPosition.xyz/projectionPosition.w)/2.0+0.5;
       // vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
       // vColor = texture2D(uPotentialsTex, uv).r;
 
@@ -1573,7 +1573,7 @@ const voxelsTexturedMaterial = (() => {
       if (vPotential > 0.0) {
         // gl_FragColor = vec4(vec3(${localColor.setHex(0xef5350).toArray().join(', ')}), 0.2 + vPotential);
         // gl_FragColor = vec4(vec3(1.0), 0.1);
-        vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+        vec2 uv = vScreenPosition.xy;
         gl_FragColor = texture2D(uCameraTex, uv);
         gl_FragColor.rgb += 0.2;
         gl_FragColor.a = 1.0;
@@ -1800,7 +1800,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
       gl_Position = vec4((uv-0.5)*2.0, 0.0, 1.0);
       vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
       vec4 projectionPosition = projectionMatrix * modelViewPosition;
-      vScreenPosition = projectionPosition.xyz/projectionPosition.w;
+      vScreenPosition = (projectionPosition.xyz/projectionPosition.w)/2.0+0.5;
     }
   `,
   fragmentShader: `\
@@ -1808,7 +1808,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
     varying vec3 vScreenPosition;
 
     void main() {
-      vec2 uv = vec2(vScreenPosition.x/2.0+0.5, vScreenPosition.y/2.0+0.5);
+      vec2 uv = vScreenPosition.xy;
       gl_FragColor = texture2D(uCameraTex, uv);
       gl_FragColor.a = 1.0;
     }
