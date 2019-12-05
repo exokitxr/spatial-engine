@@ -1221,7 +1221,15 @@ meshingSwitchWrap.addEventListener('click', () => {
   meshingSwitchWrap.classList.toggle('on');
   const enabled = meshingSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunker.chunks.length; i++) {
-    xrChunker.chunks[i].marchCubesMesh.visible = enabled;
+    const chunk = xrChunker.chunks[i];
+    const {marchCubesMesh} = chunk;
+    marchCubesMesh.visible = enabled && !!marchCubesMesh.geometry.attributes.position;
+    if (!enabled) {
+      marchCubesMesh.geometry.deleteAttribute('position');
+      marchCubesMesh.geometry.deleteAttribute('barycentric');
+      marchCubesMesh.geometry.deleteAttribute('uv');
+      marchCubesMesh.geometry.deleteAttribute('uv2');
+    }
   }
 });
 const meshingTextureSwitchWrap = document.getElementById('meshing-texture-switch-wrap');
