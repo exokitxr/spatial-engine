@@ -1819,44 +1819,29 @@ class XRChunk {
           for (let y = 0; y < height+1; y++) {
             for (let z = 0; z < depth+1; z++) {
               let sum = 0;
-              // let num = 0;
               for (let dx = -1; dx <= 1; dx++) {
                 const ax = x + dx;
-                // if (ax >= 0 && ax < width+2) {
-                  for (let dy = -1; dy <= 1; dy++) {
-                    const ay = y + dy;
-                    // if (ay >= 0 && ay < height+2) {
-                      for (let dz = -1; dz <= 1; dz++) {
-                        const az = z + dz;
-                        // if (ax >= 0 && ax < width+2 && ay >= 0 && ay < height+2 && az >= 0 && az < depth+2) {
-                          const chunk = xrChunker.getChunkAt(
-                            this.object.position.x + ax*voxelSize,
-                            this.object.position.y + ay*voxelSize,
-                            this.object.position.z + az*voxelSize
-                          );
-                          if (chunk) {
-                            // const o = [ax, ay, az];
-                            // window.o = o;
-                            // console.log('got');
-                            const chunkOffset = localVector.copy(this.object.position)
-                              .sub(chunk.object.position);
-                            const lax = ax + chunkOffset.x*width;
-                            const lay = ay + chunkOffset.y*height;
-                            const laz = az + chunkOffset.z*depth;
-                            /* if (o[0] >= 0 && o[0] < width+2 && o[1] >= 0 && o[1] < height+2 && o[2] >= 0 && o[2] < depth+2 && chunk.workingPotentials[_getPotentialIndex(lax, lay, laz)] !== workingPotentials[_getPotentialIndex(o[0], o[1], o[2])]) {
-                              debugger;
-                            } */
-                            sum += chunk.workingPotentials[_getPotentialIndex(lax, lay, laz)];
-                            // num++;
-                          } else {
-                            // console.log('no chunk', )
-                            sum += potentialClearValue;
-                          }
-                        // }
-                      }
-                    // }
+                for (let dy = -1; dy <= 1; dy++) {
+                  const ay = y + dy;
+                  for (let dz = -1; dz <= 1; dz++) {
+                    const az = z + dz;
+                      const chunk = xrChunker.getChunkAt(
+                        this.object.position.x + ax*voxelSize,
+                        this.object.position.y + ay*voxelSize,
+                        this.object.position.z + az*voxelSize
+                      );
+                      if (chunk) {
+                        const chunkOffset = localVector.copy(this.object.position)
+                          .sub(chunk.object.position);
+                        const lax = ax + chunkOffset.x*width;
+                        const lay = ay + chunkOffset.y*height;
+                        const laz = az + chunkOffset.z*depth;
+                        sum += chunk.workingPotentials[_getPotentialIndex(lax, lay, laz)];
+                      } else {
+                        sum += potentialClearValue;
+                    }
                   }
-                // }
+                }
               }
               potentials[_getPotentialIndex(x, y, z)] = sum/(3*3*3);
             }
