@@ -172,7 +172,7 @@ const _handleMessage = data => {
     case 'smoothedPotentials': {
       const allocator = new Allocator();
 
-      const {chunkCoords: chunkCoordsArray, colorTargetCoordBuf: colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize} = data;
+      const {chunkCoords: chunkCoordsArray, colorTargetCoordBuf: colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize, arrayBuffer} = data;
 
       // console.log('req', {chunkCoordsArray, colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize});
 
@@ -189,17 +189,6 @@ const _handleMessage = data => {
       const potentialsBlockSize = (width+1)*(height+1)*(depth+1);
       const potentialsBuffer = allocator.alloc(Float32Array, chunkCoordsArray.length*potentialsBlockSize);
 
-      /* console.log('smoothing 1',
-        chunkCoords.offset,
-        numChunkCoords,
-        colorTargetBuf.offset,
-        width,
-        height,
-        depth,
-        colorTargetSize,
-        voxelSize,
-        potentialsBuffer.offset
-      ); */
       self.LocalModule._doSmoothedPotentials(
         chunkCoords.offset,
         numChunkCoords,
@@ -211,16 +200,21 @@ const _handleMessage = data => {
         voxelSize,
         potentialsBuffer.offset,
       );
-      // console.log('smoothing 2');
+
       const potentialsArray = Array(chunkCoordsArray.length);
+      let index = 0;
       for (let i = 0; i < chunkCoordsArray.length; i++) {
-        potentialsArray[i] = potentialsBuffer.slice(i*potentialsBlockSize, (i+1)*potentialsBlockSize);
+        const potentials = new Float32Array(arrayBuffer, index, potentialsBlockSize);
+        potentials.set(potentialsBuffer.slice(i*potentialsBlockSize, (i+1)*potentialsBlockSize));
+        index += potentialsBlockSize * Float32Array.BYTES_PER_ELEMENT;
+        potentialsArray[i] = potentials;
       }
       self.postMessage({
         result: {
           potentialsArray,
+          arrayBuffer,
         },
-      });
+      }, [arrayBuffer]);
       allocator.freeAll();
       break;
     }

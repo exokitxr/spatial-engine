@@ -1935,7 +1935,9 @@ class XRChunk {
           marchCubesTexSize,
           marchCubesTexSquares,
           marchCubesTexTriangleSize,
-        });
+          arrayBuffer,
+        }, [arrayBuffer]);
+        arrayBuffer = res.arrayBuffer;
         if (res.positions.length > 0) {
           const {positions, barycentrics, uvs, uvs2} = res;
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -1994,6 +1996,7 @@ class XRChunker {
   constructor() {
     this.chunks = [];
     this.running = false;
+    this.arrayBuffer = new ArrayBuffer(1024*1024);
   }
   getChunkAt(x, y, z) {
     for (let i = 0; i < this.chunks.length; i++) {
@@ -2079,9 +2082,10 @@ class XRChunker {
         depth,
         colorTargetSize,
         voxelSize,
-      });
-      // window.res = res; // XXX
-      const {potentialsArray} = res;
+        arrayBuffer: this.arrayBuffer,
+      }, [this.arrayBuffer]);
+      const {potentialsArray, arrayBuffer} = res;
+      this.arrayBuffer = arrayBuffer;
 
       const promises = Array(chunks.length);
       for (let i = 0; i < chunks.length; i++) {
