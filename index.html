@@ -1203,7 +1203,7 @@ raycastSwitchWrap.addEventListener('click', () => {
 const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
 voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
-  const enabled = meshingSwitchWrap.classList.contains('on');
+  const enabled = voxelsSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunker.chunks.length; i++) {
     xrChunker.chunks[i].voxelsMesh.visible = enabled;
   }
