@@ -1224,12 +1224,6 @@ meshingSwitchWrap.addEventListener('click', () => {
     const chunk = xrChunker.chunks[i];
     const {marchCubesMesh} = chunk;
     marchCubesMesh.visible = enabled && !!marchCubesMesh.geometry.attributes.position;
-    if (!enabled) {
-      marchCubesMesh.geometry.deleteAttribute('position');
-      marchCubesMesh.geometry.deleteAttribute('barycentric');
-      marchCubesMesh.geometry.deleteAttribute('uv');
-      marchCubesMesh.geometry.deleteAttribute('uv2');
-    }
   }
 });
 const meshingTextureSwitchWrap = document.getElementById('meshing-texture-switch-wrap');
@@ -1943,13 +1937,20 @@ class XRChunk {
       mesh.scale.set(1, 1, 1).multiplyScalar(voxelSize);
       mesh.frustumCulled = false;
       mesh.visible = false;
+      mesh.needsUpload = false;
       mesh.update = (positions, barycentrics, uvs, uvs2) => {
         if (positions.length > 0) {
-          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          const positionsAttribute = new THREE.BufferAttribute(positions, 3);
+          geometry.setAttribute('position', positionsAttribute);
           geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 3));
           geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
           geometry.setAttribute('uv2', new THREE.BufferAttribute(uvs2, 2));
-          // console.log('sizes', positions.length, barycentrics.length, uvs.length, uvs2.length);
+
+          mesh.needsUpload = true;
+          positionsAttribute.onUploadCallback = () => {
+            mesh.needsUpload = false;
+            positionsAttribute.onUploadCallback = null;
+          };
 
           mesh.visible = meshingSwitchWrap.classList.contains('on');
 
@@ -2109,6 +2110,17 @@ class XRChunker {
     if (this.updatePromise) {
       this.updatePromise.accept();
       this.updatePromise = null;
+
+      for (let i = 0; i < this.chunks.length; i++) {
+        const chunk = this.chunks[i];
+        const {marchCubesMesh} = chunk;
+        if (marchCubesMesh.needsUpload) {
+          marchCubesMesh.geometry.deleteAttribute('position');
+          marchCubesMesh.geometry.deleteAttribute('barycentric');
+          marchCubesMesh.geometry.deleteAttribute('uv');
+          marchCubesMesh.geometry.deleteAttribute('uv2');
+        }
+      }
     }
   }
 }
