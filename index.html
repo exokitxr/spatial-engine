@@ -1194,32 +1194,32 @@ const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
 voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
   const enabled = meshingSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
+  for (let i = 0; i < xrChunker.chunks.length; i++) {
+    xrChunker.chunks[i].voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
   }
 });
 const voxelTextureSwitchWrap = document.getElementById('voxel-texture-switch-wrap');
 voxelTextureSwitchWrap.addEventListener('click', () => {
   voxelTextureSwitchWrap.classList.toggle('on');
   const enabled = voxelTextureSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].voxelsMesh.material = enabled ? xrChunks[i].voxelsTexturedMaterial : xrChunks[i].voxelsMaterial;
+  for (let i = 0; i < xrChunker.chunks.length; i++) {
+    xrChunker.chunks[i].voxelsMesh.material = enabled ? xrChunker.chunks[i].voxelsTexturedMaterial : xrChunker.chunks[i].voxelsMaterial;
   }
 });
 const meshingSwitchWrap = document.getElementById('meshing-switch-wrap');
 meshingSwitchWrap.addEventListener('click', () => {
   meshingSwitchWrap.classList.toggle('on');
   const enabled = meshingSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].marchCubesMesh.visible = enabled;
+  for (let i = 0; i < xrChunker.chunks.length; i++) {
+    xrChunker.chunks[i].marchCubesMesh.visible = enabled;
   }
 });
 const meshingTextureSwitchWrap = document.getElementById('meshing-texture-switch-wrap');
 meshingTextureSwitchWrap.addEventListener('click', () => {
   meshingTextureSwitchWrap.classList.toggle('on');
   const enabled = meshingTextureSwitchWrap.classList.contains('on');
-  for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].marchCubesMesh.material = enabled ? xrChunks[i].marchCubesTexturedMaterial : xrChunks[i].marchCubesMaterial;
+  for (let i = 0; i < xrChunker.chunks.length; i++) {
+    xrChunker.chunks[i].marchCubesMesh.material = enabled ? xrChunker.chunks[i].marchCubesTexturedMaterial : xrChunker.chunks[i].marchCubesMaterial;
   }
 });
 
