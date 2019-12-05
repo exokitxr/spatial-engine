@@ -1205,7 +1205,8 @@ voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
   const enabled = voxelsSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunker.chunks.length; i++) {
-    xrChunker.chunks[i].voxelsMesh.visible = enabled;
+    const chunk = xrChunker.chunks[i];
+    chunk.voxelsMesh.visible = enabled && !!chunk.potentialsTexture.image.data;
   }
 });
 const voxelTextureSwitchWrap = document.getElementById('voxel-texture-switch-wrap');
@@ -1715,9 +1716,7 @@ class XRChunk {
     this.object.position.set(x, y, z);
     container.add(this.object);
 
-    const potentials = new Float32Array((width+1)*(height+1)*(depth+1));
-    this.potentials = potentials;
-    const potentialsTexture = new THREE.DataTexture(potentials, (width+1)*(height+1)*(depth+1), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+    const potentialsTexture = new THREE.DataTexture(null, (width+1)*(height+1)*(depth+1), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
     this.potentialsTexture = potentialsTexture;
     const voxelsMaterial = (() => {
       const voxelsVsh = `
@@ -1880,9 +1879,22 @@ class XRChunk {
       const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
       const mesh = new THREE.Mesh(geometry, material);
       mesh.frustumCulled = false;
+      mesh.needsUpload = false;
+      mesh.update = potentials => {
+        potentialsTexture.image.data = potentials;
+
+        mesh.visible = voxelsSwitchWrap.classList.contains('on');
+
+        mesh.needsUpload = true;
+        potentialsTexture.needsUpdate = true;
+        potentialsTexture.onUpdate = () => {
+          mesh.needsUpload = false;
+          potentialsTexture.onUpdate = null;
+        };
+      };
       return mesh;
     })();
-    voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
+    voxelsMesh.visible = false;
     this.object.add(voxelsMesh);
     this.voxelsMesh = voxelsMesh;
 
@@ -1970,7 +1982,7 @@ class XRChunk {
       };
       return mesh;
     })();
-    marchCubesMesh.visible = meshingSwitchWrap.classList.contains('on');
+    marchCubesMesh.visible = false;
     this.object.add(marchCubesMesh);
     this.marchCubesMesh = marchCubesMesh;
 
@@ -1990,8 +2002,7 @@ class XRChunk {
     return v.copy(this.object.position).add(new THREE.Vector3(0.5, 0.5, 0.5));
   }
   update(potentials, positions, barycentrics, uvs, uvs2) {
-    this.potentials.set(potentials);
-    this.potentialsTexture.needsUpdate = true;
+    this.voxelsMesh.update(potentials);
     this.marchCubesMesh.update(positions, barycentrics, uvs, uvs2);
   }
   destroy() {
@@ -2118,7 +2129,10 @@ class XRChunker {
 
       for (let i = 0; i < this.chunks.length; i++) {
         const chunk = this.chunks[i];
-        const {marchCubesMesh} = chunk;
+        const {potentialsTexture, voxelsMesh, marchCubesMesh} = chunk;
+        if (voxelsMesh.needsUpload) {
+          potentialsTexture.image.data = null;
+        }
         if (marchCubesMesh.needsUpload) {
           marchCubesMesh.geometry.deleteAttribute('position');
           marchCubesMesh.geometry.deleteAttribute('barycentric');
