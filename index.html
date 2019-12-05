@@ -1342,9 +1342,8 @@ raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
 container.add(raycastMesh);
 
 const particlesMesh = (() => {
-  const resolutionP1 = colorTargetSize + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
-  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*colorTargetSize*colorTargetSize);
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   const material = new THREE.MeshBasicMaterial({
@@ -1357,12 +1356,14 @@ const particlesMesh = (() => {
     await colorTarget.updatePbuf();
 
     let index = 0;
+    let baseIndex = 0;
     for (let x = 0; x < colorTargetSize; x++) {
       for (let y = 0; y < colorTargetSize; y++) {
         const newCubeGeometry = cubeGeometry.clone()
-          .applyMatrix(localMatrix.makeTranslation(colorTargetCoordBuf[index], colorTargetCoordBuf[index+1], colorTargetCoordBuf[index+2]));
-        positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
-        i += 3;
+          .applyMatrix(localMatrix.makeTranslation(colorTargetCoordBuf[baseIndex], colorTargetCoordBuf[baseIndex+1], colorTargetCoordBuf[baseIndex+2]));
+        positions.set(newCubeGeometry.attributes.position.array, index*newCubeGeometry.attributes.position.array.length);
+        index++;
+        baseIndex += 3;
       }
     }
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -1444,11 +1445,10 @@ const gpuParticlesMeshMaterial = (() => {
   });
 })();
 const gpuParticlesMesh = (() => {
-  const resolutionP1 = colorTargetSize + 1;
   const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
-  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*resolutionP1*resolutionP1);
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*colorTargetSize*colorTargetSize);
   const numVecs = cubeGeometry.attributes.position.array.length/3;
-  const uvs = new Float32Array(numVecs*2*resolutionP1*resolutionP1);
+  const uvs = new Float32Array(numVecs*2*colorTargetSize*colorTargetSize);
 
   let i = 0;
   for (let x = 0; x < colorTargetSize; x++) {
