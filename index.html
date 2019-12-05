@@ -1995,6 +1995,12 @@ class XRChunk {
     this.marchCubesMesh.update(positions, barycentrics, uvs, uvs2);
   }
   destroy() {
+    this.potentialsTexture.dispose();
+    this.marchCubesMesh.geometry.dispose();
+    this.voxelsMaterial.dispose();
+    this.voxelsTexturedMaterial.dispose();
+    this.marchCubesTexturedMaterial.dispose();
+
     container.remove(this.object);
   }
 }
