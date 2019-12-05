@@ -1265,7 +1265,9 @@ const colorTarget = new THREE.WebGLRenderTarget(colorTargetSize, colorTargetSize
 });
 colorTarget.fresh = false;
 colorTarget.freshPbuf = false;
-const colorTargetPbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
+const colorTargetPbuf = new Float32Array(colorTargetSize*colorTargetSize*4);
+window.colorTargetPbuf = colorTargetPbuf;
+const colorTargetCoordBuf = new Float32Array(colorTargetSize*colorTargetSize*3);
 colorTarget.update = () => {
   if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
     cursorCamera.position.copy(camera.position);
@@ -1278,6 +1280,25 @@ colorTarget.update = () => {
 colorTarget.updatePbuf = () => {
   if (!colorTarget.freshPbuf) {
     renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, colorTargetPbuf, 0);
+
+    let index = 0;
+    for (let x = 0; x < colorTargetSize; x++) {
+      for (let y = 0; y < colorTargetSize; y++) {
+        // console.log(i);
+        const xFactor = x / colorTargetSize;
+        const yFactor = y / colorTargetSize;
+        const px = Math.floor(xFactor * colorTarget.width);
+        const py = Math.floor((1-yFactor) * colorTarget.height);
+        const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTarget.width * 4));
+        
+        localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
+        localVector.copy(localRaycaster.ray.origin)
+          .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
+          .toArray(colorTargetCoordBuf, index);
+        index += 3;
+      }
+    }
+
     colorTarget.freshPbuf = true;
   }
 };
@@ -1318,23 +1339,13 @@ const particlesMesh = (() => {
     colorTarget.update();
     colorTarget.updatePbuf();
 
-    let i = 0;
+    let index = 0;
     for (let x = 0; x < colorTargetSize; x++) {
       for (let y = 0; y < colorTargetSize; y++) {
-        // console.log(i);
-        const xFactor = x / colorTargetSize;
-        const yFactor = y / colorTargetSize;
-        const px = Math.floor(xFactor * colorTarget.width);
-        const py = Math.floor((1-yFactor) * colorTarget.height);
-        const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTarget.width * 4));
-        
-        localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
-        localVector.copy(localRaycaster.ray.origin)
-          .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z));
         const newCubeGeometry = cubeGeometry.clone()
-          .applyMatrix(localMatrix.makeTranslation(localVector.x, localVector.y, localVector.z));
+          .applyMatrix(localMatrix.makeTranslation(colorTargetCoordBuf[index], colorTargetCoordBuf[index+1], colorTargetCoordBuf[index+2]));
         positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
-        i++;
+        i += 3;
       }
     }
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -1777,19 +1788,10 @@ class XRChunk {
         colorTarget.updatePbuf();
 
         workingPotentials.fill(potentialClearValue);
-        let i = 0;
+        let index = 0;
         for (let x = 0; x < colorTargetSize; x++) {
           for (let y = 0; y < colorTargetSize; y++) {
-            // console.log(i);
-            const xFactor = x / colorTargetSize;
-            const yFactor = y / colorTargetSize;
-            const px = Math.floor(xFactor * colorTarget.width);
-            const py = Math.floor((1-yFactor) * colorTarget.height);
-            const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTarget.width * 4));
-            
-            localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
-            localVector.copy(localRaycaster.ray.origin)
-              .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z));
+            localVector.fromArray(colorTargetCoordBuf, index);
             if (localVector.y >= 0) {
               localVector
                 .sub(this.object.position)
@@ -1808,7 +1810,7 @@ class XRChunk {
                 )] = potentialSetValue;
               }
             }
-            i++;
+            index += 3;
           }
         }
       };
