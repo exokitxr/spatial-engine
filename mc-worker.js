@@ -227,7 +227,7 @@ const _handleMessage = data => {
     case 'march': {
       const allocator = new Allocator();
 
-      const {dims: dimsData, potential: potentialData, shift: shiftData, marchCubesTexSize, marchCubesTexSquares, marchCubesTexTriangleSize} = data;
+      const {dims: dimsData, potential: potentialData, shift: shiftData, marchCubesTexSize, marchCubesTexSquares, marchCubesTexTriangleSize, arrayBuffer} = data;
       const dims = allocator.alloc(Int32Array, 3);
       dims[0] = dimsData[0];
       dims[1] = dimsData[1];
@@ -262,14 +262,30 @@ const _handleMessage = data => {
         uvIndex.offset,
         uvIndex2.offset
       );
+
+      let index = 0;
+      const outPositions = new Float32Array(arrayBuffer, index, positionIndex[0]);
+      outPositions.set(positions.slice(0, positionIndex[0]));
+      index += positionIndex[0]*Float32Array.BYTES_PER_ELEMENT;
+      const outBarycentrics = new Float32Array(arrayBuffer, index, barycentricIndex[0]);
+      outBarycentrics.set(barycentrics.slice(0, barycentricIndex[0]));
+      index += barycentricIndex[0]*Float32Array.BYTES_PER_ELEMENT;
+      const outUvs = new Float32Array(arrayBuffer, index, uvIndex[0]);
+      outUvs.set(uvs.slice(0, uvIndex[0]));
+      index += uvIndex[0]*Float32Array.BYTES_PER_ELEMENT;
+      const outUvs2 = new Float32Array(arrayBuffer, index, uvIndex2[0]);
+      outUvs2.set(uvs2.slice(0, uvIndex2[0]));
+      // index += uvIndex2[0]*Float32Array.BYTES_PER_ELEMENT;
+
       self.postMessage({
         result: {
-          positions: positions.slice(0, positionIndex[0]),
-          barycentrics: barycentrics.slice(0, barycentricIndex[0]),
-          uvs: uvs.slice(0, uvIndex[0]),
-          uvs2: uvs2.slice(0, uvIndex2[0]),
+          positions: outPositions,
+          barycentrics: outBarycentrics,
+          uvs: outUvs,
+          uvs2: outUvs2,
+          arrayBuffer,
         },
-      });
+      }, [arrayBuffer]);
       allocator.freeAll();
       break;
     }

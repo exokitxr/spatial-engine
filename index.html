@@ -1925,6 +1925,7 @@ class XRChunk {
       mesh.scale.set(1, 1, 1).multiplyScalar(voxelSize);
       mesh.frustumCulled = false;
       mesh.visible = false;
+      let arrayBuffer = new ArrayBuffer(512*1024);
       mesh.update = async () => {
         const res = await worker.request({
           method: 'march',
