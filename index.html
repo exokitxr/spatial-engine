@@ -1923,9 +1923,6 @@ class XRChunk {
       mesh.visible = false;
       let running = false;
       mesh.update = async () => {
-        /* if (potentials.some(e => e > 0)) {
-          debugger;
-        } */
         const res = await worker.request({
           method: 'march',
           dims: Float32Array.from([width+1, height+1, depth+1]),
@@ -1935,7 +1932,6 @@ class XRChunk {
           marchCubesTexSquares,
           marchCubesTexTriangleSize,
         });
-        // window.meshPotentials = potentials;
         if (res.positions.length > 0) {
           const {positions, barycentrics, uvs, uvs2} = res;
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
