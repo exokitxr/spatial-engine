@@ -1291,8 +1291,11 @@ colorTarget.update = () => {
     colorTarget.freshPbuf = false;
   }
 };
-colorTarget.updatePbuf = () => {
+colorTarget.updatePbuf = async () => {
   if (!colorTarget.freshPbuf) {
+    await new Promise((accept, reject) => {
+      requestAnimationFrame(accept);
+    });
     renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, colorTargetPbuf, 0);
 
     let index = 0;
@@ -1349,9 +1352,9 @@ const particlesMesh = (() => {
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
-  mesh.update = () => {
+  mesh.update = async () => {
     colorTarget.update();
-    colorTarget.updatePbuf();
+    await colorTarget.updatePbuf();
 
     let index = 0;
     for (let x = 0; x < colorTargetSize; x++) {
@@ -2091,7 +2094,7 @@ class XRChunker {
       this.running = true;
 
       colorTarget.update();
-      colorTarget.updatePbuf();
+      await colorTarget.updatePbuf();
 
       // console.log('update 1');
       const chunks = this.chunks.slice();
