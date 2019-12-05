@@ -1231,7 +1231,7 @@ meshingTextureSwitchWrap.addEventListener('click', () => {
   meshingTextureSwitchWrap.classList.toggle('on');
   const enabled = meshingTextureSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunker.chunks.length; i++) {
-    xrChunker.chunks[i].marchCubesMesh.material = enabled ? xrChunker.chunks[i].marchCubesTexturedMaterial : xrChunker.chunks[i].marchCubesMaterial;
+    xrChunker.chunks[i].marchCubesMesh.material = enabled ? xrChunker.chunks[i].marchCubesTexturedMaterial : marchCubesMaterial;
   }
 });
 
@@ -1572,6 +1572,9 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
   stencilBuffer: false,
 });
 
+const marchCubesTexSize = 2048;
+const marchCubesTexTriangleSize = 64;
+const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
 const voxelsGeometry = (() => {
   const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
     // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
@@ -1628,9 +1631,84 @@ const voxelsGeometry = (() => {
   geometry.setAttribute('positionCenter', new THREE.BufferAttribute(positionCenters, 3));
   return geometry;
 })();
-const marchCubesTexSize = 2048;
-const marchCubesTexTriangleSize = 64;
-const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
+const marchCubesMaterial = new THREE.ShaderMaterial({
+  uniforms: {},
+  vertexShader: `\
+    attribute vec3 barycentric;
+    varying vec3 vPosition;
+    varying vec3 vBC;
+    void main() {
+      vBC = barycentric;
+      vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+      vPosition = modelViewPosition.xyz;
+      gl_Position = projectionMatrix * modelViewPosition;
+    }
+  `,
+  fragmentShader: `\
+    uniform sampler2D uCameraTex;
+    varying vec3 vPosition;
+    varying vec3 vBC;
+
+    vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
+    vec3 lightDirection = vec3(0.0, 0.0, 1.0);
+
+    float edgeFactor() {
+      vec3 d = fwidth(vBC);
+      vec3 a3 = smoothstep(vec3(0.0), d*1.5, vBC);
+      return min(min(a3.x, a3.y), a3.z);
+    }
+
+    void main() {
+      float barycentricFactor = (0.2 + (1.0 - edgeFactor()) * 0.8);
+      vec3 xTangent = dFdx( vPosition );
+      vec3 yTangent = dFdy( vPosition );
+      vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
+      float lightFactor = dot(faceNormal, lightDirection);
+      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
+      // gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 1.0);
+    }
+  `,
+  // side: THREE.BackSide,
+  /* polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -4, */
+  transparent: true,
+  extensions: {
+    derivatives: true,
+  },
+});
+const marchCubesRenderMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    uCameraTex: {
+      type: 't',
+      value: cameraTarget.texture,
+    },
+  },
+  vertexShader: `\
+    varying vec3 vScreenPosition;
+    void main() {
+      gl_Position = vec4((uv-0.5)*2.0, 0.0, 1.0);
+      vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+      vec4 projectionPosition = projectionMatrix * modelViewPosition;
+      vScreenPosition = (projectionPosition.xyz/projectionPosition.w)/2.0+0.5;
+    }
+  `,
+  fragmentShader: `\
+    uniform sampler2D uCameraTex;
+    varying vec3 vScreenPosition;
+
+    void main() {
+      vec2 uv = vScreenPosition.xy;
+      gl_FragColor = texture2D(uCameraTex, uv);
+      gl_FragColor.a = 1.0;
+    }
+  `,
+  // side: THREE.BackSide,
+  transparent: true,
+  extensions: {
+    derivatives: true,
+  },
+});
 class XRChunk {
   constructor(x, y, z) {
     this.object = new THREE.Object3D();
@@ -1817,53 +1895,6 @@ class XRChunk {
       stencilBuffer: false,
     });
 
-    const marchCubesMaterial = new THREE.ShaderMaterial({
-      uniforms: {},
-      vertexShader: `\
-        attribute vec3 barycentric;
-        varying vec3 vPosition;
-        varying vec3 vBC;
-        void main() {
-          vBC = barycentric;
-          vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
-          vPosition = modelViewPosition.xyz;
-          gl_Position = projectionMatrix * modelViewPosition;
-        }
-      `,
-      fragmentShader: `\
-        uniform sampler2D uCameraTex;
-        varying vec3 vPosition;
-        varying vec3 vBC;
-
-        vec3 color = vec3(0.984313725490196, 0.5490196078431373, 0.0);
-        vec3 lightDirection = vec3(0.0, 0.0, 1.0);
-
-        float edgeFactor() {
-          vec3 d = fwidth(vBC);
-          vec3 a3 = smoothstep(vec3(0.0), d*1.5, vBC);
-          return min(min(a3.x, a3.y), a3.z);
-        }
-
-        void main() {
-          float barycentricFactor = (0.2 + (1.0 - edgeFactor()) * 0.8);
-          vec3 xTangent = dFdx( vPosition );
-          vec3 yTangent = dFdy( vPosition );
-          vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
-          float lightFactor = dot(faceNormal, lightDirection);
-          gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
-          // gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 1.0);
-        }
-      `,
-      // side: THREE.BackSide,
-      /* polygonOffset: true,
-      polygonOffsetFactor: -1,
-      polygonOffsetUnits: -4, */
-      transparent: true,
-      extensions: {
-        derivatives: true,
-      },
-    });
-    this.marchCubesMaterial = marchCubesMaterial;
     const marchCubesTexturedMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uMarchCubesTex: {
@@ -1898,38 +1929,6 @@ class XRChunk {
       transparent: true,
     });
     this.marchCubesTexturedMaterial = marchCubesTexturedMaterial;
-    const marchCubesRenderMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uCameraTex: {
-          type: 't',
-          value: cameraTarget.texture,
-        },
-      },
-      vertexShader: `\
-        varying vec3 vScreenPosition;
-        void main() {
-          gl_Position = vec4((uv-0.5)*2.0, 0.0, 1.0);
-          vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
-          vec4 projectionPosition = projectionMatrix * modelViewPosition;
-          vScreenPosition = (projectionPosition.xyz/projectionPosition.w)/2.0+0.5;
-        }
-      `,
-      fragmentShader: `\
-        uniform sampler2D uCameraTex;
-        varying vec3 vScreenPosition;
-
-        void main() {
-          vec2 uv = vScreenPosition.xy;
-          gl_FragColor = texture2D(uCameraTex, uv);
-          gl_FragColor.a = 1.0;
-        }
-      `,
-      // side: THREE.BackSide,
-      transparent: true,
-      extensions: {
-        derivatives: true,
-      },
-    });
     const marchCubesMesh = (() => {
       const geometry = new THREE.BufferGeometry();
       const material = meshingTextureSwitchWrap.classList.contains('on') ? marchCubesTexturedMaterial : marchCubesMaterial;
