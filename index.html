@@ -1668,7 +1668,7 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
       vec3 yTangent = dFdy( vPosition );
       vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
       float lightFactor = dot(faceNormal, lightDirection);
-      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.9 * barycentricFactor);
+      gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.5 + barycentricFactor * 0.5);
       // gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 1.0);
     }
   `,
@@ -1677,6 +1677,7 @@ const marchCubesMaterial = new THREE.ShaderMaterial({
   polygonOffsetFactor: -1,
   polygonOffsetUnits: -4, */
   transparent: true,
+  // depthWrite: false,
   extensions: {
     derivatives: true,
   },
@@ -1782,7 +1783,7 @@ class XRChunk {
           vec3 yTangent = dFdy( vPosition );
           vec3 faceNormal = normalize( cross( xTangent, yTangent ) );
           float lightFactor = dot(faceNormal, lightDirection);
-          gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.5 + barycentricFactor*0.5);
+          gl_FragColor = vec4((0.5 + color * barycentricFactor) * lightFactor, 0.5 + barycentricFactor * 0.5);
           // gl_FragColor = vBC;
           // gl_FragColor.a = 1.0;
           // gl_FragColor = vec4(color, vPotential);
