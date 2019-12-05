@@ -2112,9 +2112,6 @@ class XRChunker {
   }
 }
 const xrChunker = new XRChunker();
-setInterval(() => {
-  xrChunker.updateCamera(camera);
-}, 100);
 
 /* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
 textureMesh.position.set(1, 1, 0);
@@ -2160,6 +2157,7 @@ setInterval(() => {
   if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
+  xrChunker.updateCamera(camera);
   xrChunker.update();
 }, 100);
 
