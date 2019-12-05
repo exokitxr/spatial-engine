@@ -1560,6 +1560,62 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
   stencilBuffer: false,
 });
 
+const voxelsGeometry = (() => {
+  const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
+    // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
+    .toNonIndexed();
+  const cubeBarycentrics = new Float32Array(cubeGeometry.attributes.position.array.length/3*4);
+  for (let i = 0; i < cubeBarycentrics.length/(2*6); i++) {
+    cubeBarycentrics[i*12] = 0;
+    cubeBarycentrics[i*12+1] = 1;
+
+    cubeBarycentrics[i*12+2] = 0;
+    cubeBarycentrics[i*12+3] = 0;
+
+    cubeBarycentrics[i*12+4] = 1;
+    cubeBarycentrics[i*12+5] = 1;
+
+    cubeBarycentrics[i*12+6] = 0;
+    cubeBarycentrics[i*12+7] = 0;
+
+    cubeBarycentrics[i*12+8] = 1;
+    cubeBarycentrics[i*12+9] = 0;
+
+    cubeBarycentrics[i*12+10] = 1;
+    cubeBarycentrics[i*12+11] = 1;
+  }
+  cubeGeometry.setAttribute('barycentric', new THREE.BufferAttribute(cubeBarycentrics, 2));
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
+  const barycentrics = new Float32Array(cubeGeometry.attributes.barycentric.array.length*width*height*depth);
+  const coords = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
+  const positionCenters = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
+  let i = 0;
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      for (let z = 0; z < depth; z++) {
+        const newCubeGeometry = cubeGeometry.clone()
+          .applyMatrix(localMatrix.makeTranslation(x*voxelSize, y*voxelSize, z*voxelSize));
+        positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
+        barycentrics.set(newCubeGeometry.attributes.barycentric.array, i*newCubeGeometry.attributes.barycentric.array.length);
+        const offset = Float32Array.from([x, y, z]);
+        for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
+          coords.set(offset, i*newCubeGeometry.attributes.position.array.length + j*3);
+        }
+        const center = Float32Array.from([x*voxelSize + 0.5*voxelSize, y*voxelSize + 0.5*voxelSize, z*voxelSize + 0.5*voxelSize]);
+        for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
+          positionCenters.set(center, i*newCubeGeometry.attributes.position.array.length + j*3);
+        }
+        i++;
+      }
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 2));
+  geometry.setAttribute('coord', new THREE.BufferAttribute(coords, 3));
+  geometry.setAttribute('positionCenter', new THREE.BufferAttribute(positionCenters, 3));
+  return geometry;
+})();
 class XRChunk {
   constructor(x, y, z) {
     this.object = new THREE.Object3D();
@@ -1727,59 +1783,7 @@ class XRChunk {
     this.voxelsTexturedMaterial = voxelsTexturedMaterial;
 
     const voxelsMesh = (() => {
-      const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
-        // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
-        .toNonIndexed();
-      const cubeBarycentrics = new Float32Array(cubeGeometry.attributes.position.array.length/3*4);
-      for (let i = 0; i < cubeBarycentrics.length/(2*6); i++) {
-        cubeBarycentrics[i*12] = 0;
-        cubeBarycentrics[i*12+1] = 1;
-
-        cubeBarycentrics[i*12+2] = 0;
-        cubeBarycentrics[i*12+3] = 0;
-
-        cubeBarycentrics[i*12+4] = 1;
-        cubeBarycentrics[i*12+5] = 1;
-
-        cubeBarycentrics[i*12+6] = 0;
-        cubeBarycentrics[i*12+7] = 0;
-
-        cubeBarycentrics[i*12+8] = 1;
-        cubeBarycentrics[i*12+9] = 0;
-
-        cubeBarycentrics[i*12+10] = 1;
-        cubeBarycentrics[i*12+11] = 1;
-      }
-      cubeGeometry.setAttribute('barycentric', new THREE.BufferAttribute(cubeBarycentrics, 2));
-      const positions = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
-      const barycentrics = new Float32Array(cubeGeometry.attributes.barycentric.array.length*width*height*depth);
-      const coords = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
-      const positionCenters = new Float32Array(cubeGeometry.attributes.position.array.length*width*height*depth);
-      let i = 0;
-      for (let x = 0; x < width; x++) {
-        for (let y = 0; y < height; y++) {
-          for (let z = 0; z < depth; z++) {
-            const newCubeGeometry = cubeGeometry.clone()
-              .applyMatrix(localMatrix.makeTranslation(x*voxelSize, y*voxelSize, z*voxelSize));
-            positions.set(newCubeGeometry.attributes.position.array, i*newCubeGeometry.attributes.position.array.length);
-            barycentrics.set(newCubeGeometry.attributes.barycentric.array, i*newCubeGeometry.attributes.barycentric.array.length);
-            const offset = Float32Array.from([x, y, z]);
-            for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
-              coords.set(offset, i*newCubeGeometry.attributes.position.array.length + j*3);
-            }
-            const center = Float32Array.from([x*voxelSize + 0.5*voxelSize, y*voxelSize + 0.5*voxelSize, z*voxelSize + 0.5*voxelSize]);
-            for (let j = 0; j < newCubeGeometry.attributes.position.array.length/3; j++) {
-              positionCenters.set(center, i*newCubeGeometry.attributes.position.array.length + j*3);
-            }
-            i++;
-          }
-        }
-      }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 2));
-      geometry.setAttribute('coord', new THREE.BufferAttribute(coords, 3));
-      geometry.setAttribute('positionCenter', new THREE.BufferAttribute(positionCenters, 3));
+      const geometry = voxelsGeometry;
       const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
       const mesh = new THREE.Mesh(geometry, material);
       mesh.frustumCulled = false;
