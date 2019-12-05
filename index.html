@@ -1652,15 +1652,15 @@ class XRChunk {
         attribute vec3 coord;
         attribute vec2 barycentric;
         uniform sampler2D uPotentialsTex;
-        varying float vPotential;
+        // varying float vPotential;
         varying vec2 vBC;
         varying vec3 vPosition;
         void main() {
           float ux = (coord.x + coord.y*${((width+1)*(depth+1)).toFixed(8)} + coord.z*${(width+1).toFixed(8)} + 0.5) / ${((width+1)*(height+1)*(depth+1)).toFixed(8)};
           vec2 uv = vec2(ux, 0.5);
-          vPotential = texture2D(uPotentialsTex, uv).r;
+          float potential = texture2D(uPotentialsTex, uv).r;
           vBC = barycentric;
-          if (vPotential > 0.0) {
+          if (potential > 0.0) {
             vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
             vPosition = modelViewPosition.xyz;
             gl_Position = projectionMatrix * modelViewPosition;
@@ -1670,7 +1670,7 @@ class XRChunk {
         }
       `;
       const voxelsFsh = `
-        varying float vPotential;
+        // varying float vPotential;
         varying vec2 vBC;
         varying vec3 vPosition;
 
