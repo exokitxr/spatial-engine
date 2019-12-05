@@ -890,6 +890,16 @@ const potentialClearValue = -0.2;
 const potentialSetValue = 0.7;
 
 const _getPotentialIndex = (x, y, z) => x + y*(width+1)*(depth+1) + z*(width+1);
+const _makePromise = () => {
+  let accept, reject;
+  const p = new Promise((a, r) => {
+    accept = a;
+    reject = r;
+  });
+  p.accept = accept;
+  p.reject = reject;
+  return p;
+};
 
 const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
@@ -1616,6 +1626,9 @@ const voxelsGeometry = (() => {
   geometry.setAttribute('positionCenter', new THREE.BufferAttribute(positionCenters, 3));
   return geometry;
 })();
+const marchCubesTexSize = 2048;
+const marchCubesTexTriangleSize = 64;
+const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
 class XRChunk {
   constructor(x, y, z) {
     this.object = new THREE.Object3D();
@@ -1793,9 +1806,6 @@ class XRChunk {
     this.object.add(voxelsMesh);
     this.voxelsMesh = voxelsMesh;
 
-    const marchCubesTexSize = 2048;
-    const marchCubesTexTriangleSize = 64;
-    const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
     const marchCubesRenderTarget = new THREE.WebGLRenderTarget(marchCubesTexSize, marchCubesTexSize, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
@@ -1925,25 +1935,13 @@ class XRChunk {
       mesh.scale.set(1, 1, 1).multiplyScalar(voxelSize);
       mesh.frustumCulled = false;
       mesh.visible = false;
-      let arrayBuffer = new ArrayBuffer(512*1024);
-      mesh.update = async () => {
-        const res = await worker.request({
-          method: 'march',
-          dims: Float32Array.from([width+1, height+1, depth+1]),
-          potential: potentials,
-          shift: Float32Array.from([0, 0, 0]),
-          marchCubesTexSize,
-          marchCubesTexSquares,
-          marchCubesTexTriangleSize,
-          arrayBuffer,
-        }, [arrayBuffer]);
-        arrayBuffer = res.arrayBuffer;
-        if (res.positions.length > 0) {
-          const {positions, barycentrics, uvs, uvs2} = res;
+      mesh.update = (positions, barycentrics, uvs, uvs2) => {
+        if (positions.length > 0) {
           geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
           geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 3));
           geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
           geometry.setAttribute('uv2', new THREE.BufferAttribute(uvs2, 2));
+          // console.log('sizes', positions.length, barycentrics.length, uvs.length, uvs2.length);
 
           mesh.visible = meshingSwitchWrap.classList.contains('on');
 
@@ -1983,10 +1981,10 @@ class XRChunk {
   getCenter(v = new THREE.Vector3()) {
     return v.copy(this.object.position).add(new THREE.Vector3(0.5, 0.5, 0.5));
   }
-  async update(potentials) {
+  update(potentials, positions, barycentrics, uvs, uvs2) {
     this.potentials.set(potentials);
     this.potentialsTexture.needsUpdate = true;
-    await this.marchCubesMesh.update();
+    this.marchCubesMesh.update(positions, barycentrics, uvs, uvs2);
   }
   destroy() {
     container.remove(this.object);
@@ -1996,7 +1994,7 @@ class XRChunker {
   constructor() {
     this.chunks = [];
     this.running = false;
-    this.arrayBuffer = new ArrayBuffer(1024*1024);
+    this.arrayBuffer = new ArrayBuffer(2*1024*1024);
   }
   getChunkAt(x, y, z) {
     for (let i = 0; i < this.chunks.length; i++) {
@@ -2064,6 +2062,11 @@ class XRChunker {
     }
   }
   async update() {
+    if (this.updatePromise) {
+      this.updatePromise.accept();
+      this.updatePromise = null;
+    }
+
     if (!this.running) {
       this.running = true;
 
@@ -2074,24 +2077,28 @@ class XRChunker {
       const chunks = this.chunks.slice();
       const chunkCoords = chunks.map(chunk => chunk.object.position.toArray());
       const res = await worker.request({
-        method: 'smoothedPotentials',
+        method: 'computeGeometry',
         chunkCoords,
         colorTargetCoordBuf,
         colorTargetSize,
         voxelSize,
+        marchCubesTexSize,
+        marchCubesTexSquares,
+        marchCubesTexTriangleSize,
         arrayBuffer: this.arrayBuffer,
       }, [this.arrayBuffer]);
-      const {potentialsArray, arrayBuffer} = res;
+      const {potentialsArray, positionsArray, barycentricsArray, uvsArray, uvs2Array, arrayBuffer, size} = res;
       this.arrayBuffer = arrayBuffer;
-
-      const promises = Array(chunks.length);
-      for (let i = 0; i < chunks.length; i++) {
-        promises[i] = chunks[i].update(potentialsArray[i]);
+      if (size > arrayBuffer.byteLength) {
+        throw new Error(`geometry buffer overflow: have ${arrayBuffer.byteLength}, need ${size}`);
       }
-      // console.log('update 1');
-      await Promise.all(promises);
-      // console.log('update 2');
-      
+
+      for (let i = 0; i < chunks.length; i++) {
+        chunks[i].update(potentialsArray[i], positionsArray[i], barycentricsArray[i], uvsArray[i], uvs2Array[i]);
+      }
+      this.updatePromise = _makePromise();
+      await this.updatePromise;
+
       this.running = false;
     }
   }

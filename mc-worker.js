@@ -171,7 +171,7 @@ const _handleMessage = data => {
       });
       allocator.freeAll();
       break;
-    } */
+    }
     case 'smoothedPotentials': {
       const allocator = new Allocator();
 
@@ -280,8 +280,116 @@ const _handleMessage = data => {
       }, [arrayBuffer]);
       allocator.freeAll();
       break;
+    } */
+    case 'computeGeometry': {
+      const allocator = new Allocator();
+
+      const {chunkCoords: chunkCoordsArray, colorTargetCoordBuf: colorTargetCoordBufData, colorTargetSize, voxelSize, marchCubesTexSize, marchCubesTexSquares, marchCubesTexTriangleSize, arrayBuffer} = data;
+
+      const chunkCoords = allocator.alloc(Int32Array, chunkCoordsArray.length*3);
+      for (let i = 0; i < chunkCoordsArray.length; i++) {
+        const chunkCoord = chunkCoordsArray[i];
+        chunkCoords[i*3] = chunkCoord[0];
+        chunkCoords[i*3+1] = chunkCoord[1];
+        chunkCoords[i*3+2] = chunkCoord[2];
+      }
+      const numChunkCoords = chunkCoordsArray.length;
+      const colorTargetBuf = allocator.alloc(Float32Array, colorTargetCoordBufData.length);
+      colorTargetBuf.set(colorTargetCoordBufData);
+      const potentialsBlockSize = (width+1)*(height+1)*(depth+1);
+      const potentialsBuffer = allocator.alloc(Float32Array, chunkCoordsArray.length*potentialsBlockSize);
+      const positionsBuffer = allocator.alloc(Float32Array, chunkCoordsArray.length*300*1024/Float32Array.BYTES_PER_ELEMENT);
+      const barycentricsBuffer = allocator.alloc(Float32Array, chunkCoordsArray.length*300*1024/Float32Array.BYTES_PER_ELEMENT);
+      const uvsBuffer = allocator.alloc(Float32Array, chunkCoordsArray.length*300*1024/Float32Array.BYTES_PER_ELEMENT);
+      const uvs2Buffer = allocator.alloc(Float32Array, chunkCoordsArray.length*300*1024/Float32Array.BYTES_PER_ELEMENT);
+      const positionIndex = allocator.alloc(Uint32Array, chunkCoordsArray.length);
+      const barycentricIndex = allocator.alloc(Uint32Array, chunkCoordsArray.length);
+      const uvIndex = allocator.alloc(Uint32Array, chunkCoordsArray.length);
+      const uvIndex2 = allocator.alloc(Uint32Array, chunkCoordsArray.length);
+
+      self.LocalModule._doComputeGeometry(
+        chunkCoords.offset,
+        numChunkCoords,
+        colorTargetBuf.offset,
+        colorTargetSize,
+        voxelSize,
+        marchCubesTexSize,
+        marchCubesTexSquares,
+        marchCubesTexTriangleSize,
+        potentialsBuffer.offset,
+        positionsBuffer.offset,
+        barycentricsBuffer.offset,
+        uvsBuffer.offset,
+        uvs2Buffer.offset,
+        positionIndex.offset,
+        barycentricIndex.offset,
+        uvIndex.offset,
+        uvIndex2.offset,
+      );
+
+      let index = 0;
+      const potentialsArray = Array(chunkCoordsArray.length);
+      for (let i = 0; i < chunkCoordsArray.length; i++) {
+        const potentials = new Float32Array(arrayBuffer, index, potentialsBlockSize);
+        potentials.set(potentialsBuffer.slice(i*potentialsBlockSize, (i+1)*potentialsBlockSize));
+        index += potentialsBlockSize * Float32Array.BYTES_PER_ELEMENT;
+        potentialsArray[i] = potentials;
+      }
+      const positionsArray = Array(chunkCoordsArray.length);
+      let positionsBufferIndex = 0;
+      const barycentricsArray = Array(chunkCoordsArray.length);
+      let barycentricsBufferIndex = 0;
+      const uvsArray = Array(chunkCoordsArray.length);
+      let uvsBufferIndex = 0;
+      const uvs2Array = Array(chunkCoordsArray.length);
+      let uvs2BufferIndex = 0;
+      for (let i = 0; i < chunkCoordsArray.length; i++) {
+        const numPositions = positionIndex[i];
+        const positions = new Float32Array(arrayBuffer, index, numPositions);
+        positions.set(positionsBuffer.slice(positionsBufferIndex, positionsBufferIndex + numPositions));
+        index += numPositions * Float32Array.BYTES_PER_ELEMENT;
+        positionsBufferIndex += numPositions;
+        positionsArray[i] = positions;
+
+        const numBarycentrics = barycentricIndex[i];
+        const barycentrics = new Float32Array(arrayBuffer, index, numBarycentrics);
+        barycentrics.set(barycentricsBuffer.slice(barycentricsBufferIndex, barycentricsBufferIndex + numBarycentrics));
+        index += numBarycentrics * Float32Array.BYTES_PER_ELEMENT;
+        barycentricsBufferIndex += numBarycentrics;
+        barycentricsArray[i] = barycentrics;
+
+        const numUvs = uvIndex[i];
+        const uvs = new Float32Array(arrayBuffer, index, numUvs);
+        uvs.set(uvsBuffer.slice(uvsBufferIndex, uvsBufferIndex + numUvs));
+        index += numUvs * Float32Array.BYTES_PER_ELEMENT;
+        uvsBufferIndex += numUvs;
+        uvsArray[i] = uvs;
+
+        const numUvs2 = uvIndex2[i];
+        const uvs2 = new Float32Array(arrayBuffer, index, numUvs2);
+        uvs2.set(uvs2Buffer.slice(uvs2BufferIndex, uvs2BufferIndex + numUvs2));
+        index += numUvs2 * Float32Array.BYTES_PER_ELEMENT;
+        uvs2BufferIndex += numUvs2;
+        uvs2Array[i] = uvs2;
+      }
+
+      self.postMessage({
+        result: {
+          potentialsArray,
+          positionsArray,
+          barycentricsArray,
+          uvsArray,
+          uvs2Array,
+          arrayBuffer,
+          size: index,
+        },
+      }, [arrayBuffer]);
+
+      allocator.freeAll();
+
+      break;
     }
-    case 'collide': {
+    /* case 'collide': {
       const allocator = new Allocator();
 
       const {positions: positionsData, indices: indicesData, origin: originData, direction: directionData} = data;
@@ -316,7 +424,7 @@ const _handleMessage = data => {
 
       allocator.freeAll();
       break;
-    }
+    } */
     default: {
       console.warn('unknown method', data.method);
       break;
