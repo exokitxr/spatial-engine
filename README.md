@@ -1,2 +1,2 @@
-# meshing
-WebXR meshing system
+# Exokit spatial engine
+WebXR raycasting, meshing, voxelization
