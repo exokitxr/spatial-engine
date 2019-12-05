@@ -1263,6 +1263,24 @@ const colorTarget = new THREE.WebGLRenderTarget(colorTargetSize, colorTargetSize
   depthBuffer: true,
   stencilBuffer: false,
 });
+colorTarget.fresh = false;
+colorTarget.freshPbuf = false;
+const colorTargetPbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
+colorTarget.update = () => {
+  if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
+    cursorCamera.position.copy(camera.position);
+    cursorCamera.quaternion.copy(camera.quaternion);
+    _renderDepth(colorTarget, cursorCamera);
+    colorTarget.fresh = true;
+    colorTarget.freshPbuf = false;
+  }
+};
+colorTarget.updatePbuf = () => {
+  if (!colorTarget.freshPbuf) {
+    renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, colorTargetPbuf, 0);
+    colorTarget.freshPbuf = true;
+  }
+};
 
 const raycastTarget = new THREE.WebGLRenderTarget(1, 1, {
   minFilter: THREE.LinearFilter,
@@ -1297,12 +1315,8 @@ const particlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
-    cursorCamera.position.copy(camera.position);
-    cursorCamera.quaternion.copy(camera.quaternion);
-    _renderDepth(colorTarget, cursorCamera);
-
-    const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
-    renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
+    colorTarget.update();
+    colorTarget.updatePbuf();
 
     let i = 0;
     for (let x = 0; x < colorTargetSize; x++) {
@@ -1312,7 +1326,7 @@ const particlesMesh = (() => {
         const yFactor = y / colorTargetSize;
         const px = Math.floor(xFactor * colorTarget.width);
         const py = Math.floor((1-yFactor) * colorTarget.height);
-        const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
+        const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTarget.width * 4));
         
         localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
         localVector.copy(localRaycaster.ray.origin)
@@ -1439,10 +1453,7 @@ const gpuParticlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
-    cursorCamera.position.copy(camera.position);
-    cursorCamera.quaternion.copy(camera.quaternion);
-    cursorCamera.updateMatrixWorld();
-    _renderDepth(colorTarget, cursorCamera);
+    colorTarget.update();
 
     gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(cursorCamera.matrixWorld);
     gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(cursorCamera.projectionMatrixInverse);
@@ -1538,9 +1549,9 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
 });
 
 class XRChunk {
-  constructor(position) {
+  constructor(x, y, z) {
     this.object = new THREE.Object3D();
-    this.object.position.copy(position);
+    this.object.position.set(x, y, z);
     container.add(this.object);
 
     const workingPotentials = new Float32Array((width+1)*(height+1)*(depth+1));
@@ -1762,12 +1773,8 @@ class XRChunk {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.frustumCulled = false;
       mesh.updatePotentials = () => {
-        cursorCamera.position.copy(camera.position);
-        cursorCamera.quaternion.copy(camera.quaternion);
-        _renderDepth(colorTarget, cursorCamera);
-
-        const pbuf = new Float32Array(colorTarget.width*colorTarget.height*4);
-        renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, pbuf, 0);
+        colorTarget.update();
+        colorTarget.updatePbuf();
 
         workingPotentials.fill(potentialClearValue);
         let i = 0;
@@ -1778,7 +1785,7 @@ class XRChunk {
             const yFactor = y / colorTargetSize;
             const px = Math.floor(xFactor * colorTarget.width);
             const py = Math.floor((1-yFactor) * colorTarget.height);
-            const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
+            const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTarget.width * 4));
             
             localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
             localVector.copy(localRaycaster.ray.origin)
@@ -1820,7 +1827,7 @@ class XRChunk {
                       for (let dz = -1; dz <= 1; dz++) {
                         const az = z + dz;
                         // if (ax >= 0 && ax < width+2 && ay >= 0 && ay < height+2 && az >= 0 && az < depth+2) {
-                          const chunk = _getXrChunkAt(
+                          const chunk = xrChunker.getChunkAt(
                             this.object.position.x + ax*voxelSize,
                             this.object.position.y + ay*voxelSize,
                             this.object.position.z + az*voxelSize
@@ -2063,6 +2070,9 @@ class XRChunk {
     const marchCubesRenderScene = new THREE.Scene();
     marchCubesRenderScene.add(marchCubesRenderMesh);
   }
+  getCenter(v = new THREE.Vector3()) {
+    return v.copy(this.object.position).add(new THREE.Vector3(0.5, 0.5, 0.5));
+  }
   update() {
     this.voxelsMesh.updatePotentials();
   }
@@ -2070,29 +2080,106 @@ class XRChunk {
     this.voxelsMesh.smoothPotentials();
     this.marchCubesMesh.update();
   }
+  destroy() {
+    container.remove(this.object);
+  }
 }
-const xrChunks = [
-  new XRChunk(new THREE.Vector3(0, 0, 0)),
-  new XRChunk(new THREE.Vector3(0, 1, 0)),
-];
-const _getXrChunkAt = (x, y, z) => {
-  for (let i = 0; i < xrChunks.length; i++) {
-    const xrChunk = xrChunks[i];
-    const dx = x - xrChunk.object.position.x;
-    const dy = y - xrChunk.object.position.y;
-    const dz = z - xrChunk.object.position.z;
-    if (dx >= 0 && dx < 1 && dy >= 0 && dy < 1 && dz >= 0 && dz < 1) {
-      return xrChunk;
+class XRChunker {
+  constructor() {
+    this.chunks = [
+      // new XRChunk(new THREE.Vector3(0, 0, 0)),
+      // new XRChunk(new THREE.Vector3(0, 1, 0)),
+    ];
+  }
+  getChunkAt(x, y, z) {
+    for (let i = 0; i < this.chunks.length; i++) {
+      const chunk = this.chunks[i];
+      const dx = x - chunk.object.position.x;
+      const dy = y - chunk.object.position.y;
+      const dz = z - chunk.object.position.z;
+      if (dx >= 0 && dx < 1 && dy >= 0 && dy < 1 && dz >= 0 && dz < 1) {
+        return chunk;
+      }
+    }
+    return null;
+  }
+  hideChunks() {
+    const unhideXrChunks = this.chunks.map(chunk => {
+      const oldVoxelsMeshVisible = chunk.voxelsMesh.visible;
+      chunk.voxelsMesh.visible = false;
+      const oldMarchCubesMeshVisible = chunk.marchCubesMesh.visible;
+      chunk.marchCubesMesh.visible = false;
+      return () => {
+        chunk.voxelsMesh.visible = oldVoxelsMeshVisible;
+        chunk.marchCubesMesh.visible = oldMarchCubesMeshVisible;
+      };
+    });
+    return () => {
+      for (let i = 0; i < unhideXrChunks.length; i++) {
+        unhideXrChunks[i]();
+      }
+    };
+  }
+  updateCamera(camera) {
+    const _floorVector = v => new THREE.Vector3(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
+    const cameraCoord = _floorVector(camera.position);
+    const cameraCenter = cameraCoord.clone().add(new THREE.Vector3(0.5, 0.5, 0.5));
+    const neededCoords = [
+      cameraCoord.clone(),
+      _floorVector(cameraCenter.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion))),
+      // _floorVector(new THREE.Vector3(0, 0, -2).applyQuaternion(camera.quaternion)),
+      // _floorVector(new THREE.Vector3(0, 0, -3).applyQuaternion(camera.quaternion)),
+    ];
+    for (let z = -1; z >= -1; z--) {
+      for (let x = -1; x <= 1; x++) {
+        for (let y = 1; y >= -1; y--) {
+          if (x === 0 && y === 0) {
+            continue;
+          } else {
+            const c = _floorVector(cameraCenter.clone().add(new THREE.Vector3(x, y, z).normalize().applyQuaternion(camera.quaternion)));
+            if (!neededCoords.some(c2 => c2.equals(c))) {
+              neededCoords.push(c);
+            }
+            if (neededCoords.some(c => c.distanceTo(cameraCoord) >= 2)) {
+              window.camera = camera;
+              window.neededCoords = neededCoords;
+              console.log('needed', neededCoords.length, neededCoords.map(c => c.distanceTo(cameraCoord)));
+              debugger;
+            }
+          }
+        }
+      }
+    }
+    const missingChunkCoords = neededCoords.filter(c => !this.getChunkAt(c.x, c.y, c.z));
+    const outrangedChunks = this.chunks.filter(chunk => chunk.object.position.distanceTo(cameraCoord) >= 3.75);
+    for (let i = 0; i < outrangedChunks.length; i++) {
+      const chunk = outrangedChunks[i];
+      this.chunks.splice(this.chunks.indexOf(chunk), 1);
+      chunk.destroy();
+    }
+    for (let i = 0; i < missingChunkCoords.length; i++) {
+      const c = missingChunkCoords[i];
+      this.chunks.push(new XRChunk(c.x, c.y, c.z));
     }
   }
-  return null;
-};
+  update() {
+    for (let i = 0; i < this.chunks.length; i++) {
+      this.chunks[i].update();
+    }
+    for (let i = 0; i < this.chunks.length; i++) {
+      this.chunks[i].postProcess();
+    }
+  }
+}
+const xrChunker = new XRChunker();
+setInterval(() => {
+  xrChunker.updateCamera(camera);
+}, 100);
 
 /* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
 textureMesh.position.set(1, 1, 0);
 scene.add(textureMesh); */
 
-const pbuf = new Float32Array(4);
 function DecodeFloatRGBA(rgba, i) {
   /* if (rgba[i] === 0 && rgba[i+1] === 0 && rgba[i+2] === 0 && rgba[3] === 0) {
     return Infinity;
@@ -2104,6 +2191,7 @@ function DecodeFloatRGBA(rgba, i) {
     // return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
   // }
 }
+const raycastPbuf = new Float32Array(4);
 window.addEventListener('mousemove', e => {
   if (raycastSwitchWrap.classList.contains('on')) {
     const rect = renderer.domElement.getBoundingClientRect();
@@ -2116,11 +2204,11 @@ window.addEventListener('mousemove', e => {
       raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
       _renderDepth(raycastTarget, raycastCamera);
 
-      renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, pbuf, 0);
-      const z = DecodeFloatRGBA(pbuf, 0);
+      renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, raycastPbuf, 0);
+      const z = DecodeFloatRGBA(raycastPbuf, 0);
       raycastMesh.position.copy(localRaycaster.ray.origin)
         .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-      // console.log('read', z, raycastMesh.position.y, pbuf.join(','));
+      // console.log('read', z, raycastMesh.position.y, raycastPbuf.join(','));
     }
   }
 });
@@ -2132,12 +2220,7 @@ setInterval(() => {
   if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
-  for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].update();
-  }
-  for (let i = 0; i < xrChunks.length; i++) {
-    xrChunks[i].postProcess();
-  }
+  xrChunker.update();
 }, 100);
 
 const _hideUiMeshes = () => {
@@ -2147,16 +2230,7 @@ const _hideUiMeshes = () => {
   particlesMesh.visible = false;
   const oldGpuParticlesMeshVisible = gpuParticlesMesh.visible;
   gpuParticlesMesh.visible = false;
-  const unhideXrChunks = xrChunks.map(xrChunk => {
-    const oldVoxelsMeshVisible = xrChunk.voxelsMesh.visible;
-    xrChunk.voxelsMesh.visible = false;
-    const oldMarchCubesMeshVisible = xrChunk.marchCubesMesh.visible;
-    xrChunk.marchCubesMesh.visible = false;
-    return () => {
-      xrChunk.voxelsMesh.visible = oldVoxelsMeshVisible;
-      xrChunk.marchCubesMesh.visible = oldMarchCubesMeshVisible;
-    };
-  });
+  const unhideXrChunker = xrChunker.hideChunks();
   // const oldTextureMeshVisible = textureMesh.visible;
   // textureMesh.visible = false;
 
@@ -2164,9 +2238,7 @@ const _hideUiMeshes = () => {
     raycastMesh.visible = oldRaycastMeshVisible;
     particlesMesh.visible = oldParticlesMeshVisible;
     gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
-    for (let i = 0; i < unhideXrChunks.length; i++) {
-      unhideXrChunks[i]();
-    }
+    unhideXrChunker();
     // textureMesh.visible = oldTextureMeshVisible;
   };
 };
@@ -2196,6 +2268,8 @@ function animate(timestamp, frame, referenceSpace) {
   }
 
   renderer.render(scene, camera);
+
+  colorTarget.fresh = false;
 }
 renderer.setAnimationLoop(animate);
     </script>
