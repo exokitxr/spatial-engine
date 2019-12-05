@@ -2127,12 +2127,6 @@ class XRChunker {
             if (!neededCoords.some(c2 => c2.equals(c))) {
               neededCoords.push(c);
             }
-            if (neededCoords.some(c => c.distanceTo(cameraCoord) >= 2)) {
-              window.camera = camera;
-              window.neededCoords = neededCoords;
-              console.log('needed', neededCoords.length, neededCoords.map(c => c.distanceTo(cameraCoord)));
-              debugger;
-            }
           }
         }
       }
