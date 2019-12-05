@@ -10,12 +10,15 @@ self.module = {}; */
 
 // let Module = null;
 // let slab = null;
-const NUM_CELLS = 8;
+/* const NUM_CELLS = 8;
 const OVERSCAN = 1;
 const NUM_CELLS_OVERSCAN = NUM_CELLS + OVERSCAN;
 const NUM_CHUNKS_HEIGHT = 10;                 
 const NUM_CELLS_HEIGHT = NUM_CELLS * NUM_CHUNKS_HEIGHT;
-const NUM_CELLS_OVERSCAN_Y = NUM_CELLS_HEIGHT + OVERSCAN;
+const NUM_CELLS_OVERSCAN_Y = NUM_CELLS_HEIGHT + OVERSCAN; */
+const width = 10;
+const height = 10;
+const depth = 10;
 // let noiserOffset = 0;
 self.wasmModule = (moduleName, moduleFn) => {
   // console.log('wasm module', moduleName, moduleFn);
@@ -172,9 +175,7 @@ const _handleMessage = data => {
     case 'smoothedPotentials': {
       const allocator = new Allocator();
 
-      const {chunkCoords: chunkCoordsArray, colorTargetCoordBuf: colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize, arrayBuffer} = data;
-
-      // console.log('req', {chunkCoordsArray, colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize});
+      const {chunkCoords: chunkCoordsArray, colorTargetCoordBuf: colorTargetCoordBufData, colorTargetSize, voxelSize, arrayBuffer} = data;
 
       const chunkCoords = allocator.alloc(Int32Array, chunkCoordsArray.length*3);
       for (let i = 0; i < chunkCoordsArray.length; i++) {
@@ -193,9 +194,6 @@ const _handleMessage = data => {
         chunkCoords.offset,
         numChunkCoords,
         colorTargetBuf.offset,
-        width,
-        height,
-        depth,
         colorTargetSize,
         voxelSize,
         potentialsBuffer.offset,
