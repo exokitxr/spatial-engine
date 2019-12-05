@@ -169,6 +169,61 @@ const _handleMessage = data => {
       allocator.freeAll();
       break;
     } */
+    case 'smoothedPotentials': {
+      const allocator = new Allocator();
+
+      const {chunkCoords: chunkCoordsArray, colorTargetCoordBuf: colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize} = data;
+
+      // console.log('req', {chunkCoordsArray, colorTargetCoordBufData, width, height, depth, colorTargetSize, voxelSize});
+
+      const chunkCoords = allocator.alloc(Int32Array, chunkCoordsArray.length*3);
+      for (let i = 0; i < chunkCoordsArray.length; i++) {
+        const chunkCoord = chunkCoordsArray[i];
+        chunkCoords[i*3] = chunkCoord[0];
+        chunkCoords[i*3+1] = chunkCoord[1];
+        chunkCoords[i*3+2] = chunkCoord[2];
+      }
+      const numChunkCoords = chunkCoordsArray.length;
+      const colorTargetBuf = allocator.alloc(Float32Array, colorTargetCoordBufData.length);
+      colorTargetBuf.set(colorTargetCoordBufData);
+      const potentialsBlockSize = (width+1)*(height+1)*(depth+1);
+      const potentialsBuffer = allocator.alloc(Float32Array, chunkCoordsArray.length*potentialsBlockSize);
+
+      /* console.log('smoothing 1',
+        chunkCoords.offset,
+        numChunkCoords,
+        colorTargetBuf.offset,
+        width,
+        height,
+        depth,
+        colorTargetSize,
+        voxelSize,
+        potentialsBuffer.offset
+      ); */
+      self.LocalModule._doSmoothedPotentials(
+        chunkCoords.offset,
+        numChunkCoords,
+        colorTargetBuf.offset,
+        width,
+        height,
+        depth,
+        colorTargetSize,
+        voxelSize,
+        potentialsBuffer.offset,
+      );
+      // console.log('smoothing 2');
+      const potentialsArray = Array(chunkCoordsArray.length);
+      for (let i = 0; i < chunkCoordsArray.length; i++) {
+        potentialsArray[i] = potentialsBuffer.slice(i*potentialsBlockSize, (i+1)*potentialsBlockSize);
+      }
+      self.postMessage({
+        result: {
+          potentialsArray,
+        },
+      });
+      allocator.freeAll();
+      break;
+    }
     case 'march': {
       const allocator = new Allocator();
 

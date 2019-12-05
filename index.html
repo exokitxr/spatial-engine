@@ -1268,6 +1268,7 @@ colorTarget.freshPbuf = false;
 const colorTargetPbuf = new Float32Array(colorTargetSize*colorTargetSize*4);
 // window.colorTargetPbuf = colorTargetPbuf;
 const colorTargetCoordBuf = new Float32Array(colorTargetSize*colorTargetSize*3);
+// window.colorTargetCoordBuf = colorTargetCoordBuf;
 colorTarget.update = () => {
   if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
     cursorCamera.position.copy(camera.position);
@@ -1565,11 +1566,10 @@ class XRChunk {
     this.object.position.set(x, y, z);
     container.add(this.object);
 
-    const workingPotentials = new Float32Array((width+1)*(height+1)*(depth+1));
-    this.workingPotentials = workingPotentials;
-
     const potentials = new Float32Array((width+1)*(height+1)*(depth+1));
+    this.potentials = potentials;
     const potentialsTexture = new THREE.DataTexture(potentials, (width+1)*(height+1)*(depth+1), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
+    this.potentialsTexture = potentialsTexture;
     const voxelsMaterial = (() => {
       const voxelsVsh = `
         attribute vec3 coord;
@@ -1783,80 +1783,6 @@ class XRChunk {
       const material = voxelTextureSwitchWrap.classList.contains('on') ? voxelsTexturedMaterial : voxelsMaterial;
       const mesh = new THREE.Mesh(geometry, material);
       mesh.frustumCulled = false;
-      mesh.updatePotentials = () => {
-        colorTarget.update();
-        colorTarget.updatePbuf();
-
-        workingPotentials.fill(potentialClearValue);
-        let index = 0;
-        for (let x = 0; x < colorTargetSize; x++) {
-          for (let y = 0; y < colorTargetSize; y++) {
-            localVector.fromArray(colorTargetCoordBuf, index);
-            if (localVector.y >= 0) {
-              localVector
-                .sub(this.object.position)
-                .divideScalar(voxelSize)
-                .add(localVector2.set(0.5,0.5,0.5));
-
-              if (
-                localVector.x >= 0 && (localVector.x) < (width+1) &&
-                localVector.y >= 0 && (localVector.y) < (height+1) &&
-                localVector.z >= 0 && (localVector.z) < (depth+1)
-              ) {
-                workingPotentials[_getPotentialIndex(
-                  Math.floor(localVector.x),
-                  Math.floor(localVector.y),
-                  Math.floor(localVector.z)
-                )] = potentialSetValue;
-              }
-            }
-            index += 3;
-          }
-        }
-      };
-      mesh.smoothPotentials = () => {
-        for (let x = 0; x < width+1; x++) {
-          for (let y = 0; y < height+1; y++) {
-            for (let z = 0; z < depth+1; z++) {
-              let sum = 0;
-              for (let dx = -1; dx <= 1; dx++) {
-                const ax = x + dx;
-                for (let dy = -1; dy <= 1; dy++) {
-                  const ay = y + dy;
-                  for (let dz = -1; dz <= 1; dz++) {
-                    const az = z + dz;
-                      const chunk = xrChunker.getChunkAt(
-                        this.object.position.x + ax*voxelSize,
-                        this.object.position.y + ay*voxelSize,
-                        this.object.position.z + az*voxelSize
-                      );
-                      if (chunk) {
-                        const chunkOffset = localVector.copy(this.object.position)
-                          .sub(chunk.object.position);
-                        const lax = ax + chunkOffset.x*width;
-                        const lay = ay + chunkOffset.y*height;
-                        const laz = az + chunkOffset.z*depth;
-                        sum += chunk.workingPotentials[_getPotentialIndex(lax, lay, laz)];
-                      } else {
-                        sum += potentialClearValue;
-                    }
-                  }
-                }
-              }
-              potentials[_getPotentialIndex(x, y, z)] = sum/(3*3*3);
-            }
-          }
-        }
-        /* for (let x = 0; x < width+2; x++) {
-          for (let y = 0; y < height+2; y++) {
-            for (let z = 0; z < depth+2; z++) {
-              const k = _getPotentialIndex(x, y, z);
-              potentials[k] = workingPotentials[k];
-            }
-          }
-        } */
-        potentialsTexture.needsUpdate = true;
-      };
       return mesh;
     })();
     voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
@@ -1999,44 +1925,42 @@ class XRChunk {
       mesh.frustumCulled = false;
       mesh.visible = false;
       let running = false;
-      mesh.update = () => {
-        if (!running) {
-          running = true;
-          worker.request({
-            method: 'march',
-            dims: Float32Array.from([width+1, height+1, depth+1]),
-            potential: potentials,
-            shift: Float32Array.from([0, 0, 0]),
-            marchCubesTexSize,
-            marchCubesTexSquares,
-            marchCubesTexTriangleSize,
-          }).then(res => {
-            if (res.positions.length > 0) {
-              const {positions, barycentrics, uvs, uvs2} = res;
-              geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-              geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 3));
-              geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-              geometry.setAttribute('uv2', new THREE.BufferAttribute(uvs2, 2));
+      mesh.update = async () => {
+        /* if (potentials.some(e => e > 0)) {
+          debugger;
+        } */
+        const res = await worker.request({
+          method: 'march',
+          dims: Float32Array.from([width+1, height+1, depth+1]),
+          potential: potentials,
+          shift: Float32Array.from([0, 0, 0]),
+          marchCubesTexSize,
+          marchCubesTexSquares,
+          marchCubesTexTriangleSize,
+        });
+        // window.meshPotentials = potentials;
+        if (res.positions.length > 0) {
+          const {positions, barycentrics, uvs, uvs2} = res;
+          geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+          geometry.setAttribute('barycentric', new THREE.BufferAttribute(barycentrics, 3));
+          geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+          geometry.setAttribute('uv2', new THREE.BufferAttribute(uvs2, 2));
 
-              mesh.visible = meshingSwitchWrap.classList.contains('on');
+          mesh.visible = meshingSwitchWrap.classList.contains('on');
 
-              if (meshingTextureSwitchWrap.classList.contains('on')) {
-                const unhideUiMeshes = _hideUiMeshes();
+          if (meshingTextureSwitchWrap.classList.contains('on')) {
+            const unhideUiMeshes = _hideUiMeshes();
 
-                renderer.setRenderTarget(marchCubesRenderTarget);
-                renderer.autoClear = false;
-                renderer.render(marchCubesRenderScene, camera);
-                renderer.autoClear = true;
+            renderer.setRenderTarget(marchCubesRenderTarget);
+            renderer.autoClear = false;
+            renderer.render(marchCubesRenderScene, camera);
+            renderer.autoClear = true;
 
-                unhideUiMeshes();
-                renderer.setRenderTarget(null);
-              }
-            } else {
-              mesh.visible = false;
-            }
-
-            running = false;
-          });
+            unhideUiMeshes();
+            renderer.setRenderTarget(null);
+          }
+        } else {
+          mesh.visible = false;
         }
       };
       return mesh;
@@ -2060,12 +1984,10 @@ class XRChunk {
   getCenter(v = new THREE.Vector3()) {
     return v.copy(this.object.position).add(new THREE.Vector3(0.5, 0.5, 0.5));
   }
-  update() {
-    this.voxelsMesh.updatePotentials();
-  }
-  postProcess() {
-    this.voxelsMesh.smoothPotentials();
-    this.marchCubesMesh.update();
+  async update(potentials) {
+    this.potentials.set(potentials);
+    this.potentialsTexture.needsUpdate = true;
+    await this.marchCubesMesh.update();
   }
   destroy() {
     container.remove(this.object);
@@ -2073,10 +1995,8 @@ class XRChunk {
 }
 class XRChunker {
   constructor() {
-    this.chunks = [
-      // new XRChunk(new THREE.Vector3(0, 0, 0)),
-      // new XRChunk(new THREE.Vector3(0, 1, 0)),
-    ];
+    this.chunks = [];
+    this.running = false;
   }
   getChunkAt(x, y, z) {
     for (let i = 0; i < this.chunks.length; i++) {
@@ -2143,12 +2063,38 @@ class XRChunker {
       this.chunks.push(new XRChunk(c.x, c.y, c.z));
     }
   }
-  update() {
-    for (let i = 0; i < this.chunks.length; i++) {
-      this.chunks[i].update();
-    }
-    for (let i = 0; i < this.chunks.length; i++) {
-      this.chunks[i].postProcess();
+  async update() {
+    if (!this.running) {
+      this.running = true;
+
+      colorTarget.update();
+      colorTarget.updatePbuf();
+
+      // console.log('update 1');
+      const chunks = this.chunks.slice();
+      const chunkCoords = chunks.map(chunk => chunk.object.position.toArray());
+      const res = await worker.request({
+        method: 'smoothedPotentials',
+        chunkCoords,
+        colorTargetCoordBuf,
+        width,
+        height,
+        depth,
+        colorTargetSize,
+        voxelSize,
+      });
+      // window.res = res; // XXX
+      const {potentialsArray} = res;
+
+      const promises = Array(chunks.length);
+      for (let i = 0; i < chunks.length; i++) {
+        promises[i] = chunks[i].update(potentialsArray[i]);
+      }
+      // console.log('update 1');
+      await Promise.all(promises);
+      // console.log('update 2');
+      
+      this.running = false;
     }
   }
 }
