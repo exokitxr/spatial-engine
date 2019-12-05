@@ -1266,7 +1266,7 @@ const colorTarget = new THREE.WebGLRenderTarget(colorTargetSize, colorTargetSize
 colorTarget.fresh = false;
 colorTarget.freshPbuf = false;
 const colorTargetPbuf = new Float32Array(colorTargetSize*colorTargetSize*4);
-window.colorTargetPbuf = colorTargetPbuf;
+// window.colorTargetPbuf = colorTargetPbuf;
 const colorTargetCoordBuf = new Float32Array(colorTargetSize*colorTargetSize*3);
 colorTarget.update = () => {
   if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
