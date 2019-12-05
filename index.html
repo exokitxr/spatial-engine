@@ -2070,11 +2070,6 @@ class XRChunker {
     }
   }
   async update() {
-    if (this.updatePromise) {
-      this.updatePromise.accept();
-      this.updatePromise = null;
-    }
-
     if (!this.running) {
       this.running = true;
 
@@ -2108,6 +2103,12 @@ class XRChunker {
       await this.updatePromise;
 
       this.running = false;
+    }
+  }
+  render() {
+    if (this.updatePromise) {
+      this.updatePromise.accept();
+      this.updatePromise = null;
     }
   }
 }
@@ -2206,6 +2207,7 @@ function animate(timestamp, frame, referenceSpace) {
   }
 
   renderer.render(scene, camera);
+  xrChunker.render();
 
   colorTarget.fresh = false;
 }
