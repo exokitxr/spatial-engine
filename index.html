@@ -1288,8 +1288,8 @@ colorTarget.updatePbuf = () => {
         const xFactor = x / colorTargetSize;
         const yFactor = y / colorTargetSize;
         const px = Math.floor(xFactor * colorTarget.width);
-        const py = Math.floor((1-yFactor) * colorTarget.height);
-        const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTarget.width * 4));
+        const py = Math.floor((1-yFactor) * colorTarget.height)-1;
+        const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
         
         localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
         localVector.copy(localRaycaster.ray.origin)
