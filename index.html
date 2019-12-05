@@ -1205,7 +1205,7 @@ voxelsSwitchWrap.addEventListener('click', () => {
   voxelsSwitchWrap.classList.toggle('on');
   const enabled = meshingSwitchWrap.classList.contains('on');
   for (let i = 0; i < xrChunker.chunks.length; i++) {
-    xrChunker.chunks[i].voxelsMesh.visible = voxelsSwitchWrap.classList.contains('on');
+    xrChunker.chunks[i].voxelsMesh.visible = enabled;
   }
 });
 const voxelTextureSwitchWrap = document.getElementById('voxel-texture-switch-wrap');
