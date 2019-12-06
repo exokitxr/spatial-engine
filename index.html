@@ -1459,7 +1459,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   },
 });
 class XRRaycaster {
-  constructor({width = colorTargetSize, height = colorTargetSize, renderer = new THREE.WebGLRenderer(), camera = new THREE.PerspectiveCamera()} = {}) {
+  constructor({width = colorTargetSize, height = colorTargetSize, renderer = new THREE.WebGLRenderer(), camera = new THREE.PerspectiveCamera(), onRender = (target, camera) => {}} = {}) {
     this.width = width;
     this.height = height;
     this.renderer = renderer;
@@ -1475,26 +1475,37 @@ class XRRaycaster {
     });
     colorTarget.fresh = false;
     colorTarget.freshPbuf = false;
+    colorTarget.freshCoordBuf = false;
     const colorTargetPbuf = new Float32Array(width*height*4); // encoded z depths
     this.colorTargetPbuf = colorTargetPbuf;
     const colorTargetCoordBuf = new Float32Array(width*height*3); // decoded xyz points
     this.colorTargetCoordBuf = colorTargetCoordBuf;
-    colorTarget.update = newCamera => {
-      if (!colorTarget.fresh || !camera.position.equals(newCamera.position) || !camera.quaternion.equals(newCamera.quaternion)) {
-        camera.position.copy(newCamera.position);
-        camera.quaternion.copy(newCamera.quaternion);
-        _renderDepth(colorTarget, camera);
+    colorTarget.updateView = (p, q) => {
+      const position = new THREE.Vector3().fromArray(p);
+      const quaternion = new THREE.Quaternion().fromArray(q);
+
+      if (!camera.position.equals(position) || !camera.quaternion.equals(quaternion)) {
+        camera.position.copy(position);
+        camera.quaternion.copy(quaternion);
+        colorTarget.fresh = false;
+      }
+    };
+    colorTarget.updateTexture = () => {
+      if (!colorTarget.fresh) {
+        onRender(colorTarget, camera);
         colorTarget.fresh = true;
         colorTarget.freshPbuf = false;
       }
     };
-    colorTarget.updatePointCloudBuffer = async () => {
+    colorTarget.updateDepthBuffer = () => {
       if (!colorTarget.freshPbuf) {
-        await new Promise((accept, reject) => {
-          requestAnimationFrame(accept);
-        });
         renderer.readRenderTargetPixels(colorTarget, 0, 0, width, height, colorTargetPbuf, 0);
-
+        colorTarget.freshPbuf = true;
+        colorTarget.freshCoordBuf = false;
+      }
+    };
+    colorTarget.updatePointCloudBuffer = () => {
+      if (!colorTarget.freshCoordBuf) {
         let index = 0;
         for (let x = 0; x < colorTargetSize; x++) {
           for (let y = 0; y < colorTargetSize; y++) {
@@ -1512,7 +1523,7 @@ class XRRaycaster {
           }
         }
 
-        colorTarget.freshPbuf = true;
+        colorTarget.freshCoordBuf = true;
       }
     };
     this.colorTarget = colorTarget;
@@ -1523,14 +1534,15 @@ class XRRaycaster {
   getDepthTexture() {
     return this.colorTarget.texture;
   }
-  async raycast(xFactor, yFactor) {
+  async raycast(camera, xFactor, yFactor) {
     if (xFactor >= 0 && xFactor <= 1 && yFactor >= 0 && yFactor <= 1) {
       localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
-      this.camera.position.copy(localRaycaster.ray.origin);
-      this.camera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
-      _renderDepth(this.colorTarget, this.camera);
 
-      renderer.readRenderTargetPixels(this.colorTarget, 0, 0, 1, 1, this.colorTargetPbuf, 0);
+      this.updateView(localRaycaster.ray.origin, localQuaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction));
+      this.updateTexture();
+      await XRRaycaster.nextFrame();
+      this.updateDepthBuffer();
+
       const z = XRRaycaster.decodePixelDepth(this.colorTargetPbuf, 0);
       return localVector.copy(localRaycaster.ray.origin)
         .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
@@ -1539,11 +1551,17 @@ class XRRaycaster {
       return null;
     }
   }
-  update(camera) {
-    this.colorTarget.update(camera);
+  updateView(p, q) {
+    this.colorTarget.updateView(p, q);
   }
-  async updatePointCloudBuffer() {
-    await this.colorTarget.updatePointCloudBuffer();
+  updateTexture() {
+    this.colorTarget.updateTexture();
+  }
+  updateDepthBuffer() {
+    this.colorTarget.updateDepthBuffer();
+  }
+  updatePointCloudBuffer() {
+    this.colorTarget.updatePointCloudBuffer();
   }
   render() {
     this.colorTarget.fresh = false;
@@ -1553,6 +1571,11 @@ class XRRaycaster {
       rgba[i+1] * 255.0 +
       rgba[i+2] * 255.0*255.0 +
       rgba[i+3] * 255.0*255.0*255.0;
+  }
+  static nextFrame() {
+    return new Promise((accept, reject) => {
+      requestAnimationFrame(accept);
+    });
   }
 }
 const colorTargetSize = 256;
@@ -1564,17 +1587,35 @@ const raycastCamera = new THREE.OrthographicCamera(
   height_ortho /  2, height_ortho  / -2,
   0.1, 300
 );
+const _renderRaycaster = (target, camera) => {
+  const unhideUiMeshes = _hideUiMeshes();
+
+  scene.overrideMaterial = depthMaterial;
+  depthMaterial.uniforms.uNear.value = camera.near;
+  depthMaterial.uniforms.uFar.value = camera.far;
+  renderer.setRenderTarget(target);
+  renderer.setClearColor(localColor.set(0, 0, 0), 1);
+  renderer.render(scene, camera);
+  scene.overrideMaterial = null;
+  renderer.setClearColor(localColor.set(0, 0, 0), 0);
+
+  unhideUiMeshes();
+
+  renderer.setRenderTarget(null);
+};
 const xrRaycaster = new XRRaycaster({
   width: colorTargetSize,
   height: colorTargetSize,
   renderer,
   camera: raycastCamera,
+  onRender: _renderRaycaster,
 });
 const xrMouseRaycaster = new XRRaycaster({
   width: 1,
   height: 1,
   renderer,
   camera: raycastCamera.clone(),
+  onRender: _renderRaycaster,
 });
 class XRChunk {
   constructor(x, y, z) {
@@ -2051,8 +2092,11 @@ const particlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = async () => {
-    xrRaycaster.update(camera);
-    await xrRaycaster.updatePointCloudBuffer();
+    xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
+    xrRaycaster.updateTexture();
+    await XRRaycaster.nextFrame();
+    xrRaycaster.updateDepthBuffer();
+    xrRaycaster.updatePointCloudBuffer();
 
     const pointCloudBuffer = xrRaycaster.getPointCloudBuffer();
     let index = 0;
@@ -2166,7 +2210,8 @@ const gpuParticlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
-    xrRaycaster.update(camera);
+    xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
+    xrRaycaster.updateTexture();
 
     gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(xrRaycaster.camera.matrixWorld);
     gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(xrRaycaster.camera.projectionMatrixInverse);
@@ -2190,7 +2235,7 @@ window.addEventListener('mousemove', async e => {
     const xFactor = (e.clientX - rect.left) / rect.width;
     const yFactor = (e.clientY - rect.top) / rect.height;
 
-    const point = await xrMouseRaycaster.raycast(xFactor, yFactor);
+    const point = await xrMouseRaycaster.raycast(camera, xFactor, yFactor);
     if (point) {
       raycastMesh.position.fromArray(point);
       raycastMesh.visible = true;
@@ -2209,8 +2254,11 @@ setInterval(() => {
   }
   xrChunker.updateView(camera.position.toArray(), camera.quaternion.toArray());
   xrChunker.updateMesh(async () => {
-    xrRaycaster.update(camera);
-    await xrRaycaster.updatePointCloudBuffer();
+    xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
+    xrRaycaster.updateTexture();
+    await XRRaycaster.nextFrame();
+    xrRaycaster.updateDepthBuffer();
+    xrRaycaster.updatePointCloudBuffer();
     return {
       width: xrRaycaster.width,
       pointCloudBuffer: xrRaycaster.getPointCloudBuffer(),
@@ -2236,22 +2284,6 @@ const _hideUiMeshes = () => {
     unhideXrChunker();
     // textureMesh.visible = oldTextureMeshVisible;
   };
-};
-const _renderDepth = (target, camera) => {
-  const unhideUiMeshes = _hideUiMeshes();
-
-  scene.overrideMaterial = depthMaterial;
-  depthMaterial.uniforms.uNear.value = camera.near;
-  depthMaterial.uniforms.uFar.value = camera.far;
-  renderer.setRenderTarget(target);
-  renderer.setClearColor(localColor.set(0, 0, 0), 1);
-  renderer.render(scene, camera);
-  scene.overrideMaterial = null;
-  renderer.setClearColor(localColor.set(0, 0, 0), 0);
-
-  unhideUiMeshes();
-
-  renderer.setRenderTarget(null);
 };
 function animate(timestamp, frame, referenceSpace) {
   if (meshingTextureSwitchWrap.classList.contains('on') || voxelTextureSwitchWrap.classList.contains('on')) {
