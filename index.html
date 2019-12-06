@@ -934,13 +934,6 @@ camera.position.y = 1.5;
 camera.position.z = 0.5;
 // camera.lookAt(new THREE.Vector3(0, 1, 0))
 
-const cursorCamera = new THREE.OrthographicCamera(
-  width_ortho  / -2, width_ortho   /  2,
-  height_ortho /  2, height_ortho  / -2,
-  0.1, 300
-);
-const raycastCamera = cursorCamera.clone();
-
 const ambientLight = new THREE.AmbientLight(0x808080);
 scene.add(ambientLight);
 
@@ -1270,6 +1263,9 @@ const depthMaterial = (() => {
     }
   `;
   const depthFsh = `
+    uniform float uNear;
+    uniform float uFar;
+
     vec4 EncodeFloatRGBA( float v ) {
       vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
       enc = fract(enc);
@@ -1281,7 +1277,7 @@ const depthMaterial = (() => {
     } */
     // const float infinity = 1./0.;
     void main() {
-      float originalZ = ${cursorCamera.near.toFixed(8)} + gl_FragCoord.z / gl_FragCoord.w * ${(cursorCamera.far - cursorCamera.near).toFixed(8)};
+      float originalZ = uNear + gl_FragCoord.z / gl_FragCoord.w * (uFar - uNear);
       // gl_FragColor = EncodeFloatRGBA(originalZ);
 
       float x = fract(originalZ);
@@ -1303,6 +1299,16 @@ const depthMaterial = (() => {
     }
   `;
   return new THREE.ShaderMaterial({
+    uniforms: {
+      uNear: {
+        type: 'f',
+        value: 0,
+      },
+      uFar: {
+        type: 'f',
+        value: 0,
+      },
+    },
     vertexShader: depthVsh,
     fragmentShader: depthFsh,
     // transparent: true,
@@ -1457,11 +1463,12 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
     derivatives: true,
   },
 });
-const colorTargetSize = 256;
 class XRRaycaster {
-  constructor({width = colorTargetSize, height = colorTargetSize, renderer = new THREE.WebGLRenderer()} = {}) {
+  constructor({width = colorTargetSize, height = colorTargetSize, renderer = new THREE.WebGLRenderer(), camera = new THREE.PerspectiveCamera()} = {}) {
     this.width = width;
     this.height = height;
+    this.renderer = renderer;
+    this.camera = camera;
 
     const colorTarget = new THREE.WebGLRenderTarget(width, height, {
       minFilter: THREE.LinearFilter,
@@ -1473,15 +1480,15 @@ class XRRaycaster {
     });
     colorTarget.fresh = false;
     colorTarget.freshPbuf = false;
-    const colorTargetPbuf = new Float32Array(colorTargetSize*colorTargetSize*4); // encoded z depths
+    const colorTargetPbuf = new Float32Array(width*height*4); // encoded z depths
     this.colorTargetPbuf = colorTargetPbuf;
-    const colorTargetCoordBuf = new Float32Array(colorTargetSize*colorTargetSize*3); // decoded xyz points
+    const colorTargetCoordBuf = new Float32Array(width*height*3); // decoded xyz points
     this.colorTargetCoordBuf = colorTargetCoordBuf;
-    colorTarget.update = () => {
-      if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
-        cursorCamera.position.copy(camera.position);
-        cursorCamera.quaternion.copy(camera.quaternion);
-        _renderDepth(colorTarget, cursorCamera);
+    colorTarget.update = newCamera => {
+      if (!colorTarget.fresh || !camera.position.equals(newCamera.position) || !camera.quaternion.equals(newCamera.quaternion)) {
+        camera.position.copy(newCamera.position);
+        camera.quaternion.copy(newCamera.quaternion);
+        _renderDepth(colorTarget, camera);
         colorTarget.fresh = true;
         colorTarget.freshPbuf = false;
       }
@@ -1491,19 +1498,18 @@ class XRRaycaster {
         await new Promise((accept, reject) => {
           requestAnimationFrame(accept);
         });
-        renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, colorTargetPbuf, 0);
+        renderer.readRenderTargetPixels(colorTarget, 0, 0, width, height, colorTargetPbuf, 0);
 
         let index = 0;
         for (let x = 0; x < colorTargetSize; x++) {
           for (let y = 0; y < colorTargetSize; y++) {
-            // console.log(i);
             const xFactor = x / colorTargetSize;
             const yFactor = y / colorTargetSize;
-            const px = Math.floor(xFactor * colorTarget.width);
-            const py = Math.floor((1-yFactor) * colorTarget.height)-1;
+            const px = Math.floor(xFactor * width);
+            const py = Math.floor((1-yFactor) * height)-1;
             const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
             
-            localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
+            localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
             localVector.copy(localRaycaster.ray.origin)
               .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
               .toArray(colorTargetCoordBuf, index);
@@ -1525,12 +1531,12 @@ class XRRaycaster {
   async raycast(xFactor, yFactor) {
     if (xFactor >= 0 && xFactor <= 1 && yFactor >= 0 && yFactor <= 1) {
       localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
-      raycastCamera.position.copy(localRaycaster.ray.origin);
-      raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
-      _renderDepth(raycastTarget, raycastCamera);
+      this.camera.position.copy(localRaycaster.ray.origin);
+      this.camera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
+      _renderDepth(this.colorTarget, this.camera);
 
-      renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, raycastPbuf, 0);
-      const z = DecodeFloatRGBA(raycastPbuf, 0);
+      renderer.readRenderTargetPixels(this.colorTarget, 0, 0, 1, 1, this.colorTargetPbuf, 0);
+      const z = DecodeFloatRGBA(this.colorTargetPbuf, 0);
       return localVector.copy(localRaycaster.ray.origin)
         .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
         .toArray();
@@ -1538,8 +1544,8 @@ class XRRaycaster {
       return null;
     }
   }
-  update() {
-    this.colorTarget.update();
+  update(camera) {
+    this.colorTarget.update(camera);
   }
   async updatePbuf() {
     await this.colorTarget.updatePbuf();
@@ -1548,15 +1554,23 @@ class XRRaycaster {
     this.colorTarget.fresh = false;
   }
 }
+const colorTargetSize = 256;
+const raycastCamera = new THREE.OrthographicCamera(
+  width_ortho  / -2, width_ortho   /  2,
+  height_ortho /  2, height_ortho  / -2,
+  0.1, 300
+);
 const xrRaycaster = new XRRaycaster({
   width: colorTargetSize,
   height: colorTargetSize,
   renderer,
+  camera: raycastCamera,
 });
 const xrMouseRaycaster = new XRRaycaster({
   width: 1,
   height: 1,
   renderer,
+  camera: raycastCamera.clone(),
 });
 class XRChunk {
   constructor(x, y, z) {
@@ -1938,7 +1952,7 @@ class XRChunker {
     if (!this.running) {
       this.running = true;
 
-      xrRaycaster.update();
+      xrRaycaster.update(camera);
       await xrRaycaster.updatePbuf();
 
       // console.log('update 1');
@@ -2035,7 +2049,7 @@ const particlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = async () => {
-    xrRaycaster.update();
+    xrRaycaster.update(camera);
     await xrRaycaster.updatePbuf();
 
     const pointCloudBuffer = xrRaycaster.getPointCloudBuffer();
@@ -2165,13 +2179,13 @@ const gpuParticlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
-    xrRaycaster.update();
+    xrRaycaster.update(camera);
 
-    gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(cursorCamera.matrixWorld);
-    gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(cursorCamera.projectionMatrixInverse);
-    gpuParticlesMeshMaterial.uniforms.uDirection.value.set(0, 0, -1).transformDirection(cursorCamera.matrixWorld);
-    gpuParticlesMeshMaterial.uniforms.uNear.value = cursorCamera.near;
-    gpuParticlesMeshMaterial.uniforms.uFar.value = cursorCamera.far;
+    gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(xrRaycaster.camera.matrixWorld);
+    gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(xrRaycaster.camera.projectionMatrixInverse);
+    gpuParticlesMeshMaterial.uniforms.uDirection.value.set(0, 0, -1).transformDirection(xrRaycaster.camera.matrixWorld);
+    gpuParticlesMeshMaterial.uniforms.uNear.value = xrRaycaster.camera.near;
+    gpuParticlesMeshMaterial.uniforms.uFar.value = xrRaycaster.camera.far;
     gpuParticlesMeshMaterial.uniforms.uDepthTex.value = xrRaycaster.getDepthTexture();
   };
   return mesh;
@@ -2245,6 +2259,8 @@ const _renderDepth = (target, camera) => {
   const unhideUiMeshes = _hideUiMeshes();
 
   scene.overrideMaterial = depthMaterial;
+  depthMaterial.uniforms.uNear.value = camera.near;
+  depthMaterial.uniforms.uFar.value = camera.far;
   renderer.setRenderTarget(target);
   renderer.setClearColor(localColor.set(0, 0, 0), 1);
   renderer.render(scene, camera);
