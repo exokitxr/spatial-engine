@@ -1538,7 +1538,7 @@ class XRRaycaster {
     if (xFactor >= 0 && xFactor <= 1 && yFactor >= 0 && yFactor <= 1) {
       localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
 
-      this.updateView(localRaycaster.ray.origin, localQuaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction));
+      this.updateView(localRaycaster.ray.origin.toArray(), localQuaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction).toArray());
       this.updateTexture();
       await XRRaycaster.nextFrame();
       this.updateDepthBuffer();
