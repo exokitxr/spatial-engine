@@ -1835,9 +1835,7 @@ const gpuParticlesMeshMaterial = (() => {
     uniform sampler2D uDepthTex;
     uniform float uNear;
     uniform float uFar;
-    float decodePixelDepth( vec4 rgba ) {
-      return dot( rgba, vec4(1.0, 255.0, 255.0*255.0, 255.0*255.0*255.0) );
-    }
+    ${XRRaycaster.decodePixelDepthGLSL}
     void main() {
       float xFactor = uv.x;
       float yFactor = uv.y;

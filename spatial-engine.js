@@ -145,6 +145,13 @@ export class XRRaycaster {
       rgba[i+2] * 255.0*255.0 +
       rgba[i+3] * 255.0*255.0*255.0;
   }
+  static get decodePixelDepthGLSL() {
+    return `
+      float decodePixelDepth(vec4 rgba) {
+        return dot(rgba, vec4(1.0, 255.0, 255.0*255.0, 255.0*255.0*255.0));
+      }
+    `;
+  }
   static nextFrame() {
     return new Promise((accept, reject) => {
       requestAnimationFrame(accept);
