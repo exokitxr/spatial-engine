@@ -17,7 +17,7 @@ const _makePromise = () => {
 };
 
 export class XRRaycaster {
-  constructor({width = 512, height = 512, fov = 60, aspect = 1, depth = 3, renderer = new THREE.WebGLRenderer(), onRender = (target, camera) => {}} = {}) {
+  constructor({width = 512, height = 512, fov = 60, aspect = 1, depth = 3, near = 0.1, far = 300, renderer = new THREE.WebGLRenderer(), onRender = (target, camera) => {}} = {}) {
     this.width = width;
     this.height = height;
     this.renderer = renderer;
@@ -27,7 +27,7 @@ export class XRRaycaster {
     const camera = new THREE.OrthographicCamera(
       cameraWidth / -2, cameraWidth / 2,
       cameraHeight / 2, cameraHeight / -2,
-      0.1, 300
+      near, far
     );
     this.camera = camera;
 
@@ -47,18 +47,25 @@ export class XRRaycaster {
     const colorTargetCoordBuf = new Float32Array(width*height*3); // decoded xyz points
     this.colorTargetCoordBuf = colorTargetCoordBuf;
     colorTarget.updateView = (p, q) => {
-      const position = new THREE.Vector3().fromArray(p);
-      const quaternion = new THREE.Quaternion().fromArray(q);
+      const position = localVector.fromArray(p);
+      const quaternion = localQuaternion.fromArray(q);
 
       if (!camera.position.equals(position) || !camera.quaternion.equals(quaternion)) {
         camera.position.copy(position);
         camera.quaternion.copy(quaternion);
+        camera.updateMatrixWorld();
         colorTarget.fresh = false;
       }
     };
     colorTarget.updateTexture = () => {
       if (!colorTarget.fresh) {
-        onRender(colorTarget, camera);
+        onRender({
+          target: colorTarget,
+          near,
+          far,
+          matrixWorld: camera.matrixWorld.toArray(),
+          projectionMatrix: camera.projectionMatrix.toArray(),
+        });
         colorTarget.fresh = true;
         colorTarget.freshDepthBuf = false;
       }
@@ -218,8 +225,8 @@ export class XRChunker extends EventTarget {
     };
   }
   updateView(p, q) {
-    const position = new THREE.Vector3().fromArray(p);
-    const quaternion = new THREE.Quaternion().fromArray(q);
+    const position = localVector.fromArray(p);
+    const quaternion = localQuaternion.fromArray(q);
 
     const _floorVector = v => new THREE.Vector3(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
     const cameraCoord = _floorVector(position);

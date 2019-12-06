@@ -1412,15 +1412,22 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   },
 });
 const colorTargetSize = 256;
-const _renderRaycaster = (target, camera) => {
+const raycasterCamera = new THREE.OrthographicCamera();
+raycasterCamera.zoom = 1;
+const _renderRaycaster = ({target, near, far, matrixWorld, projectionMatrix}) => {
   const unhideUiMeshes = _hideUiMeshes();
 
+  raycasterCamera.near = near;
+  raycasterCamera.far = far;
+  raycasterCamera.matrixWorld.fromArray(matrixWorld).decompose(raycasterCamera.position, raycasterCamera.quaternion, raycasterCamera.scale);
+  raycasterCamera.projectionMatrix.fromArray(projectionMatrix);
+
   scene.overrideMaterial = depthMaterial;
-  depthMaterial.uniforms.uNear.value = camera.near;
-  depthMaterial.uniforms.uFar.value = camera.far;
+  depthMaterial.uniforms.uNear.value = near;
+  depthMaterial.uniforms.uFar.value = far;
   renderer.setRenderTarget(target);
   renderer.setClearColor(localColor.set(0, 0, 0), 1);
-  renderer.render(scene, camera);
+  renderer.render(scene, raycasterCamera);
   scene.overrideMaterial = null;
   renderer.setClearColor(localColor.set(0, 0, 0), 0);
 
@@ -1428,6 +1435,8 @@ const _renderRaycaster = (target, camera) => {
 
   renderer.setRenderTarget(null);
 };
+const raycastNear = 0.1;
+const raycastFar = 300;
 const raycastDepth = 3;
 const xrRaycaster = new XRRaycaster({
   width: colorTargetSize,
@@ -1435,6 +1444,8 @@ const xrRaycaster = new XRRaycaster({
   renderer,
   fov,
   aspect,
+  near: raycastNear,
+  far: raycastFar,
   depth: raycastDepth,
   onRender: _renderRaycaster,
 });
@@ -1444,6 +1455,8 @@ const xrMouseRaycaster = new XRRaycaster({
   renderer,
   fov,
   aspect,
+  near: raycastNear,
+  far: raycastFar,
   depth: raycastDepth,
   onRender: _renderRaycaster,
 });
