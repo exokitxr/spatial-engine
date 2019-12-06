@@ -1412,8 +1412,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   },
 });
 const colorTargetSize = 256;
-const raycasterCamera = new THREE.OrthographicCamera();
-raycasterCamera.zoom = 1;
+const raycasterCamera = new THREE.PerspectiveCamera();
 const _renderRaycaster = ({target, near, far, matrixWorld, projectionMatrix}) => {
   const unhideUiMeshes = _hideUiMeshes();
 
