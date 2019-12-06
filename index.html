@@ -856,31 +856,6 @@ import ModelLoader from 'https://model-loader.exokit.org/model-loader.js';
 import avatarModels from 'https://avatar-models.exokit.org/avatar-models.js';
 import itemModels from 'https://item-models.exokit.org/item-models.js';
 
-const worker = (() => {
-  let cbs = [];
-  const worker = new Worker('mc-worker.js');
-  worker.onmessage = e => {
-    const {data} = e;
-    const {error, result} = data;
-    cbs.shift()(error, result);
-  };
-  worker.onerror = err => {
-    console.warn(err);
-  };
-  worker.request = (req, transfers) => new Promise((accept, reject) => {
-    worker.postMessage(req, transfers);
-
-    cbs.push((err, result) => {
-      if (!err) {
-        accept(result);
-      } else {
-        reject(err);
-      }
-    });
-  });
-  return worker;
-})();
-
 const parcelSize = 16;
 const width = 10;
 const height = 10;
@@ -1927,6 +1902,31 @@ class XRChunker {
     this.chunks = [];
     this.running = false;
     this.arrayBuffer = new ArrayBuffer(2*1024*1024);
+
+    this.worker = (() => {
+      let cbs = [];
+      const worker = new Worker('mc-worker.js');
+      worker.onmessage = e => {
+        const {data} = e;
+        const {error, result} = data;
+        cbs.shift()(error, result);
+      };
+      worker.onerror = err => {
+        console.warn(err);
+      };
+      worker.request = (req, transfers) => new Promise((accept, reject) => {
+        worker.postMessage(req, transfers);
+
+        cbs.push((err, result) => {
+          if (!err) {
+            accept(result);
+          } else {
+            reject(err);
+          }
+        });
+      });
+      return worker;
+    })();
   }
   getChunkAt(x, y, z) {
     for (let i = 0; i < this.chunks.length; i++) {
@@ -2001,7 +2001,7 @@ class XRChunker {
       const {width, pointCloudBuffer} = await getPointCloud();
       const chunks = this.chunks.slice();
       const chunkCoords = chunks.map(chunk => chunk.object.position.toArray());
-      const res = await worker.request({
+      const res = await this.worker.request({
         method: 'computeGeometry',
         chunkCoords,
         colorTargetCoordBuf: pointCloudBuffer,
