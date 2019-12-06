@@ -4,6 +4,7 @@ const localVector2D = new THREE.Vector2();
 const localQuaternion = new THREE.Quaternion();
 const localRaycaster = new THREE.Raycaster();
 
+const _getNextPowerOf2 = n => Math.pow(2, Math.ceil(Math.log(n)/Math.log(2)));
 const _makePromise = () => {
   let accept, reject;
   const p = new Promise((a, r) => {
@@ -251,7 +252,9 @@ export class XRChunker extends EventTarget {
     if (!this.running) {
       this.running = true;
 
-      const {width, voxelSize, marchCubesTexSize, marchCubesTexSquares, marchCubesTexTriangleSize, pointCloudBuffer} = await getPointCloud();
+      const {width, voxelSize, marchCubesTexSize, pointCloudBuffer} = await getPointCloud();
+      const marchCubesTexTriangleSize = _getNextPowerOf2(Math.sqrt(marchCubesTexSize));
+      const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
       const chunks = this.chunks.slice();
       const chunkCoords = chunks.map(chunk => chunk.object.position.toArray());
       const res = await this.worker.request({

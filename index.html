@@ -1276,8 +1276,6 @@ const cameraTarget = new THREE.WebGLRenderTarget(cameraSize, cameraSize, {
 });
 
 const marchCubesTexSize = 2048;
-const marchCubesTexTriangleSize = 64;
-const marchCubesTexSquares = marchCubesTexSize/marchCubesTexTriangleSize;
 const voxelsGeometry = (() => {
   const cubeGeometry = new THREE.BoxBufferGeometry(voxelSize, voxelSize, voxelSize)
     // .applyMatrix(localMatrix.makeTranslation(voxelSize/2, voxelSize/2, voxelSize/2))
@@ -1962,8 +1960,6 @@ setInterval(() => {
       width: xrRaycaster.width,
       voxelSize,
       marchCubesTexSize,
-      marchCubesTexSquares,
-      marchCubesTexTriangleSize,
       pointCloudBuffer: xrRaycaster.getPointCloudBuffer(),
     };
   });
