@@ -1198,7 +1198,10 @@ cpuSwitchWrap.addEventListener('click', () => {
 const raycastSwitchWrap = document.getElementById('raycast-switch-wrap');
 raycastSwitchWrap.addEventListener('click', () => {
   raycastSwitchWrap.classList.toggle('on');
-  raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
+  const enabled = raycastSwitchWrap.classList.contains('on');
+  if (!enabled) {
+    raycastMesh.visible = false;
+  }
 });
 const voxelsSwitchWrap = document.getElementById('voxels-switch-wrap');
 voxelsSwitchWrap.addEventListener('click', () => {
@@ -1519,6 +1522,22 @@ class XRRaycaster {
   getDepthTexture() {
     return this.colorTarget.texture;
   }
+  async raycast(xFactor, yFactor) {
+    if (xFactor >= 0 && xFactor <= 1 && yFactor >= 0 && yFactor <= 1) {
+      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
+      raycastCamera.position.copy(localRaycaster.ray.origin);
+      raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
+      _renderDepth(raycastTarget, raycastCamera);
+
+      renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, raycastPbuf, 0);
+      const z = DecodeFloatRGBA(raycastPbuf, 0);
+      return localVector.copy(localRaycaster.ray.origin)
+        .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
+        .toArray();
+    } else {
+      return null;
+    }
+  }
   update() {
     this.colorTarget.update();
   }
@@ -1532,6 +1551,11 @@ class XRRaycaster {
 const xrRaycaster = new XRRaycaster({
   width: colorTargetSize,
   height: colorTargetSize,
+  renderer,
+});
+const xrMouseRaycaster = new XRRaycaster({
+  width: 1,
+  height: 1,
   renderer,
 });
 class XRChunk {
@@ -1997,7 +2021,7 @@ const raycastMesh = (() => {
   mesh.frustumCulled = false;
   return mesh;
 })();
-raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
+raycastMesh.visible = false;
 container.add(raycastMesh);
 
 const particlesMesh = (() => {
@@ -2171,23 +2195,18 @@ function DecodeFloatRGBA(rgba, i) {
   // }
 }
 const raycastPbuf = new Float32Array(4);
-window.addEventListener('mousemove', e => {
+window.addEventListener('mousemove', async e => {
   if (raycastSwitchWrap.classList.contains('on')) {
     const rect = renderer.domElement.getBoundingClientRect();
-
     const xFactor = (e.clientX - rect.left) / rect.width;
-    const yFactor = -(e.clientY - rect.top) / rect.height;
-    if (xFactor >= 0 && xFactor <= 1 && -yFactor >= 0 && -yFactor <= 1) {
-      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, yFactor * 2 + 1), camera);
-      raycastCamera.position.copy(localRaycaster.ray.origin);
-      raycastCamera.quaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction);
-      _renderDepth(raycastTarget, raycastCamera);
+    const yFactor = (e.clientY - rect.top) / rect.height;
 
-      renderer.readRenderTargetPixels(raycastTarget, 0, 0, 1, 1, raycastPbuf, 0);
-      const z = DecodeFloatRGBA(raycastPbuf, 0);
-      raycastMesh.position.copy(localRaycaster.ray.origin)
-        .add(localVector.copy(localRaycaster.ray.direction).multiplyScalar(z));
-      // console.log('read', z, raycastMesh.position.y, raycastPbuf.join(','));
+    const point = await xrMouseRaycaster.raycast(xFactor, yFactor);
+    if (point) {
+      raycastMesh.position.fromArray(point);
+      raycastMesh.visible = true;
+    } else {
+      raycastMesh.visible = false;
     }
   }
 });
