@@ -2273,8 +2273,8 @@ function animate(timestamp, frame, referenceSpace) {
   }
 
   renderer.render(scene, camera);
-  xrChunker.render();
   xrRaycaster.render();
+  xrChunker.render();
 }
 renderer.setAnimationLoop(animate);
     </script>
