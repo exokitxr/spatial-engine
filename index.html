@@ -1474,10 +1474,10 @@ class XRRaycaster {
       stencilBuffer: false,
     });
     colorTarget.fresh = false;
-    colorTarget.freshPbuf = false;
+    colorTarget.freshDepthBuf = false;
     colorTarget.freshCoordBuf = false;
-    const colorTargetPbuf = new Float32Array(width*height*4); // encoded z depths
-    this.colorTargetPbuf = colorTargetPbuf;
+    const colorTargetDepthBuf = new Float32Array(width*height*4); // encoded z depths
+    this.colorTargetDepthBuf = colorTargetDepthBuf;
     const colorTargetCoordBuf = new Float32Array(width*height*3); // decoded xyz points
     this.colorTargetCoordBuf = colorTargetCoordBuf;
     colorTarget.updateView = (p, q) => {
@@ -1494,13 +1494,13 @@ class XRRaycaster {
       if (!colorTarget.fresh) {
         onRender(colorTarget, camera);
         colorTarget.fresh = true;
-        colorTarget.freshPbuf = false;
+        colorTarget.freshDepthBuf = false;
       }
     };
     colorTarget.updateDepthBuffer = () => {
-      if (!colorTarget.freshPbuf) {
-        renderer.readRenderTargetPixels(colorTarget, 0, 0, width, height, colorTargetPbuf, 0);
-        colorTarget.freshPbuf = true;
+      if (!colorTarget.freshDepthBuf) {
+        renderer.readRenderTargetPixels(colorTarget, 0, 0, width, height, colorTargetDepthBuf, 0);
+        colorTarget.freshDepthBuf = true;
         colorTarget.freshCoordBuf = false;
       }
     };
@@ -1513,7 +1513,7 @@ class XRRaycaster {
             const yFactor = y / colorTargetSize;
             const px = Math.floor(xFactor * width);
             const py = Math.floor((1-yFactor) * height)-1;
-            const z = XRRaycaster.decodePixelDepth(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
+            const z = XRRaycaster.decodePixelDepth(colorTargetDepthBuf, (px * 4) + (py * colorTargetSize * 4));
             
             localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
             localVector.copy(localRaycaster.ray.origin)
@@ -1543,7 +1543,7 @@ class XRRaycaster {
       await XRRaycaster.nextFrame();
       this.updateDepthBuffer();
 
-      const z = XRRaycaster.decodePixelDepth(this.colorTargetPbuf, 0);
+      const z = XRRaycaster.decodePixelDepth(this.colorTargetDepthBuf, 0);
       return localVector.copy(localRaycaster.ray.origin)
         .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
         .toArray();
