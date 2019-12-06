@@ -2153,18 +2153,9 @@ const gpuParticlesMesh = (() => {
     for (let y = 0; y < colorTargetSize; y++) {
       const xFactor = x / colorTargetSize;
       const yFactor = y / colorTargetSize;
-      /* const px = Math.floor(xFactor * colorTarget.width);
-      const py = Math.floor((1-yFactor) * colorTarget.height);
-      const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
-      
-      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
-      localVector.copy(localRaycaster.ray.origin)
-        .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z)); */
+
       positions.set(cubeGeometry.attributes.position.array, i*cubeGeometry.attributes.position.array.length);
       for (let j = 0; j < numVecs; j++) {
-        /* if (j === 10) {
-          console.log('set uv', i*numVecs*2 + j*2, xFactor, yFactor);
-        } */
         uvs[i*numVecs*2 + j*2] = xFactor;
         uvs[i*numVecs*2 + j*2 + 1] = yFactor;
       }
