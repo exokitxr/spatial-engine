@@ -1459,7 +1459,7 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   },
 });
 class XRRaycaster {
-  constructor({width = colorTargetSize, height = colorTargetSize, renderer = new THREE.WebGLRenderer(), camera = new THREE.PerspectiveCamera(), onRender = (target, camera) => {}} = {}) {
+  constructor({width = 512, height = 512, renderer = new THREE.WebGLRenderer(), camera = new THREE.PerspectiveCamera(), onRender = (target, camera) => {}} = {}) {
     this.width = width;
     this.height = height;
     this.renderer = renderer;
