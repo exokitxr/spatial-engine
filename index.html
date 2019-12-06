@@ -1916,15 +1916,16 @@ class XRChunker {
       }
     };
   }
-  updateCamera(camera) {
+  updateView(p, q) {
+    const position = new THREE.Vector3().fromArray(p);
+    const quaternion = new THREE.Quaternion().fromArray(q);
+
     const _floorVector = v => new THREE.Vector3(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
-    const cameraCoord = _floorVector(camera.position);
+    const cameraCoord = _floorVector(position);
     const cameraCenter = cameraCoord.clone().add(new THREE.Vector3(0.5, 0.5, 0.5));
     const neededCoords = [
       cameraCoord.clone(),
-      _floorVector(cameraCenter.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion))),
-      // _floorVector(new THREE.Vector3(0, 0, -2).applyQuaternion(camera.quaternion)),
-      // _floorVector(new THREE.Vector3(0, 0, -3).applyQuaternion(camera.quaternion)),
+      _floorVector(cameraCenter.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion))),
     ];
     for (let z = -1; z >= -1; z--) {
       for (let x = -1; x <= 1; x++) {
@@ -1932,7 +1933,7 @@ class XRChunker {
           if (x === 0 && y === 0) {
             continue;
           } else {
-            const c = _floorVector(cameraCenter.clone().add(new THREE.Vector3(x, y, z).normalize().applyQuaternion(camera.quaternion)));
+            const c = _floorVector(cameraCenter.clone().add(new THREE.Vector3(x, y, z).normalize().applyQuaternion(quaternion)));
             if (!neededCoords.some(c2 => c2.equals(c))) {
               neededCoords.push(c);
             }
@@ -1952,21 +1953,18 @@ class XRChunker {
       this.chunks.push(new XRChunk(c.x, c.y, c.z));
     }
   }
-  async update() {
+  async updateMesh(getPbuf) {
     if (!this.running) {
       this.running = true;
 
-      xrRaycaster.update(camera);
-      await xrRaycaster.updatePbuf();
-
-      // console.log('update 1');
+      const {width, pointCloudBuffer} = await getPbuf();
       const chunks = this.chunks.slice();
       const chunkCoords = chunks.map(chunk => chunk.object.position.toArray());
       const res = await worker.request({
         method: 'computeGeometry',
         chunkCoords,
-        colorTargetCoordBuf: xrRaycaster.getPointCloudBuffer(),
-        colorTargetSize: xrRaycaster.width,
+        colorTargetCoordBuf: pointCloudBuffer,
+        colorTargetSize: width,
         voxelSize,
         marchCubesTexSize,
         marchCubesTexSquares,
@@ -2209,8 +2207,15 @@ setInterval(() => {
   if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
-  xrChunker.updateCamera(camera);
-  xrChunker.update();
+  xrChunker.updateView(camera.position.toArray(), camera.quaternion.toArray());
+  xrChunker.updateMesh(async () => {
+    xrRaycaster.update(camera);
+    await xrRaycaster.updatePbuf();
+    return {
+      width: xrRaycaster.width,
+      pointCloudBuffer: xrRaycaster.getPointCloudBuffer(),
+    };
+  });
 }, 50);
 
 const _hideUiMeshes = () => {
