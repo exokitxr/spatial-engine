@@ -1994,11 +1994,11 @@ class XRChunker {
       this.chunks.push(new XRChunk(c.x, c.y, c.z));
     }
   }
-  async updateMesh(getPbuf) {
+  async updateMesh(getPointCloud) {
     if (!this.running) {
       this.running = true;
 
-      const {width, pointCloudBuffer} = await getPbuf();
+      const {width, pointCloudBuffer} = await getPointCloud();
       const chunks = this.chunks.slice();
       const chunkCoords = chunks.map(chunk => chunk.object.position.toArray());
       const res = await worker.request({
