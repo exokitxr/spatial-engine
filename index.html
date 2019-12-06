@@ -1412,14 +1412,6 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   },
 });
 const colorTargetSize = 256;
-const orthoDepth = 3;
-const height_ortho = orthoDepth * 2 * Math.atan( fov*(Math.PI/180) / 2 );
-const width_ortho  = height_ortho * aspect;
-const raycastCamera = new THREE.OrthographicCamera(
-  width_ortho  / -2, width_ortho   /  2,
-  height_ortho /  2, height_ortho  / -2,
-  0.1, 300
-);
 const _renderRaycaster = (target, camera) => {
   const unhideUiMeshes = _hideUiMeshes();
 
@@ -1436,18 +1428,23 @@ const _renderRaycaster = (target, camera) => {
 
   renderer.setRenderTarget(null);
 };
+const raycastDepth = 3;
 const xrRaycaster = new XRRaycaster({
   width: colorTargetSize,
   height: colorTargetSize,
   renderer,
-  camera: raycastCamera,
+  fov,
+  aspect,
+  depth: raycastDepth,
   onRender: _renderRaycaster,
 });
 const xrMouseRaycaster = new XRRaycaster({
   width: 1,
   height: 1,
   renderer,
-  camera: raycastCamera.clone(),
+  fov,
+  aspect,
+  depth: raycastDepth,
   onRender: _renderRaycaster,
 });
 const xrChunker = new XRChunker();

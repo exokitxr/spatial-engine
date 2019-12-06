@@ -17,10 +17,18 @@ const _makePromise = () => {
 };
 
 export class XRRaycaster {
-  constructor({width = 512, height = 512, renderer = new THREE.WebGLRenderer(), camera = new THREE.PerspectiveCamera(), onRender = (target, camera) => {}} = {}) {
+  constructor({width = 512, height = 512, fov = 60, aspect = 1, depth = 3, renderer = new THREE.WebGLRenderer(), onRender = (target, camera) => {}} = {}) {
     this.width = width;
     this.height = height;
     this.renderer = renderer;
+
+    const cameraHeight = depth * 2 * Math.atan(fov*(Math.PI/180)/2);
+    const cameraWidth = cameraHeight * aspect;
+    const camera = new THREE.OrthographicCamera(
+      cameraWidth / -2, cameraWidth / 2,
+      cameraHeight / 2, cameraHeight / -2,
+      0.1, 300
+    );
     this.camera = camera;
 
     const colorTarget = new THREE.WebGLRenderTarget(width, height, {
