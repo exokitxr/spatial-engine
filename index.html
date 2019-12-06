@@ -1491,7 +1491,7 @@ class XRRaycaster {
         colorTarget.freshPbuf = false;
       }
     };
-    colorTarget.updatePbuf = async () => {
+    colorTarget.updatePointCloudBuffer = async () => {
       if (!colorTarget.freshPbuf) {
         await new Promise((accept, reject) => {
           requestAnimationFrame(accept);
@@ -1545,8 +1545,8 @@ class XRRaycaster {
   update(camera) {
     this.colorTarget.update(camera);
   }
-  async updatePbuf() {
-    await this.colorTarget.updatePbuf();
+  async updatePointCloudBuffer() {
+    await this.colorTarget.updatePointCloudBuffer();
   }
   render() {
     this.colorTarget.fresh = false;
@@ -2052,7 +2052,7 @@ const particlesMesh = (() => {
   mesh.frustumCulled = false;
   mesh.update = async () => {
     xrRaycaster.update(camera);
-    await xrRaycaster.updatePbuf();
+    await xrRaycaster.updatePointCloudBuffer();
 
     const pointCloudBuffer = xrRaycaster.getPointCloudBuffer();
     let index = 0;
@@ -2210,7 +2210,7 @@ setInterval(() => {
   xrChunker.updateView(camera.position.toArray(), camera.quaternion.toArray());
   xrChunker.updateMesh(async () => {
     xrRaycaster.update(camera);
-    await xrRaycaster.updatePbuf();
+    await xrRaycaster.updatePointCloudBuffer();
     return {
       width: xrRaycaster.width,
       pointCloudBuffer: xrRaycaster.getPointCloudBuffer(),
