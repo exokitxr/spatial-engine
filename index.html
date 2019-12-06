@@ -1266,36 +1266,34 @@ const depthMaterial = (() => {
     uniform float uNear;
     uniform float uFar;
 
-    vec4 EncodeFloatRGBA( float v ) {
+    /* vec4 encodePixelDepth( float v ) {
       vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
       enc = fract(enc);
       // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
       return enc;
-    }
-    /* float DecodeFloatRGBA( vec4 rgba ) {
-      return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
     } */
     // const float infinity = 1./0.;
-    void main() {
-      float originalZ = uNear + gl_FragCoord.z / gl_FragCoord.w * (uFar - uNear);
-      // gl_FragColor = EncodeFloatRGBA(originalZ);
-
-      float x = fract(originalZ);
-      originalZ -= x;
-      originalZ /= 255.0;
-      float y = fract(originalZ);
-      originalZ -= y;
-      originalZ /= 255.0;
-      float z = fract(originalZ);
-      /* originalZ -= y;
-      originalZ /= 255.0;
-      float w = fract(originalZ);
+    vec4 encodePixelDepth( float v ) {
+      float x = fract(v);
+      v -= x;
+      v /= 255.0;
+      float y = fract(v);
+      v -= y;
+      v /= 255.0;
+      float z = fract(v);
+      /* v -= y;
+      v /= 255.0;
+      float w = fract(v);
       float w = 0.0;
       if (x == 0.0 && y == 0.0 && z == 0.0 && w == 0.0) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        return vec4(0.0, 0.0, 0.0, 1.0);
       } else { */
-        gl_FragColor = vec4(x, y, z, 0.0);
+        return vec4(x, y, z, 0.0);
       // }
+    }
+    void main() {
+      float originalZ = uNear + gl_FragCoord.z / gl_FragCoord.w * (uFar - uNear);
+      gl_FragColor = encodePixelDepth(originalZ);
     }
   `;
   return new THREE.ShaderMaterial({
@@ -1507,7 +1505,7 @@ class XRRaycaster {
             const yFactor = y / colorTargetSize;
             const px = Math.floor(xFactor * width);
             const py = Math.floor((1-yFactor) * height)-1;
-            const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
+            const z = XRRaycaster.decodePixelDepth(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
             
             localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
             localVector.copy(localRaycaster.ray.origin)
@@ -1536,7 +1534,7 @@ class XRRaycaster {
       _renderDepth(this.colorTarget, this.camera);
 
       renderer.readRenderTargetPixels(this.colorTarget, 0, 0, 1, 1, this.colorTargetPbuf, 0);
-      const z = DecodeFloatRGBA(this.colorTargetPbuf, 0);
+      const z = XRRaycaster.decodePixelDepth(this.colorTargetPbuf, 0);
       return localVector.copy(localRaycaster.ray.origin)
         .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
         .toArray();
@@ -1552,6 +1550,12 @@ class XRRaycaster {
   }
   render() {
     this.colorTarget.fresh = false;
+  }
+  static decodePixelDepth(rgba, i) {
+    return rgba[i] +
+      rgba[i+1] * 255.0 +
+      rgba[i+2] * 255.0*255.0 +
+      rgba[i+3] * 255.0*255.0*255.0;
   }
 }
 const colorTargetSize = 256;
@@ -2082,13 +2086,13 @@ const gpuParticlesMeshMaterial = (() => {
     uniform sampler2D uDepthTex;
     uniform float uNear;
     uniform float uFar;
-    float DecodeFloatRGBA( vec4 rgba ) {
+    float decodePixelDepth( vec4 rgba ) {
       return dot( rgba, vec4(1.0, 255.0, 255.0*255.0, 255.0*255.0*255.0) );
     }
     void main() {
       float xFactor = uv.x;
       float yFactor = uv.y;
-      float z = DecodeFloatRGBA(texture2D(uDepthTex, vec2(xFactor, 1.0-yFactor)));
+      float z = decodePixelDepth(texture2D(uDepthTex, vec2(xFactor, 1.0-yFactor)));
 
       vec2 coords = vec2(xFactor * 2. - 1., -yFactor * 2. + 1.);
       vec3 origin = (uMatrixWorld * uProjectionMatrixInverse * vec4(coords.x, coords.y, ( uNear + uFar ) / ( uNear - uFar ), 1.0)).xyz;
@@ -2099,12 +2103,6 @@ const gpuParticlesMeshMaterial = (() => {
     }
   `;
   const depthFsh = `
-    vec4 EncodeFloatRGBA( float v ) {
-      vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
-      enc = fract(enc);
-      // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
-      return enc;
-    }
     // const float infinity = 1./0.;
     void main() {
       gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
@@ -2188,17 +2186,6 @@ container.add(gpuParticlesMesh);
 textureMesh.position.set(1, 1, 0);
 scene.add(textureMesh); */
 
-function DecodeFloatRGBA(rgba, i) {
-  /* if (rgba[i] === 0 && rgba[i+1] === 0 && rgba[i+2] === 0 && rgba[3] === 0) {
-    return Infinity;
-  } else { */
-    return rgba[i] +
-      rgba[i+1] * 255.0 +
-      rgba[i+2] * 255.0*255.0 +
-      rgba[i+3] * 255.0*255.0*255.0;
-    // return dot( rgba, vec4(1.0, 1.0/255.0, 1.0/65025.0, 1.0/16581375.0) );
-  // }
-}
 window.addEventListener('mousemove', async e => {
   if (raycastSwitchWrap.classList.contains('on')) {
     const rect = renderer.domElement.getBoundingClientRect();
