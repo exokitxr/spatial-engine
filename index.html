@@ -1257,244 +1257,6 @@ orbitControls.screenSpacePanning = true;
 orbitControls.enableMiddleZoom = false;
 orbitControls.update();
 
-const _makeRenderTargetPlaneMesh = map => {
-  const geometry = new THREE.PlaneBufferGeometry(0.5, 0.5);
-  const material = new THREE.MeshBasicMaterial({
-    map,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  return mesh;
-};
-
-const colorTargetSize = 256;
-const colorTarget = new THREE.WebGLRenderTarget(colorTargetSize, colorTargetSize, {
-  minFilter: THREE.LinearFilter,
-  magFilter: THREE.NearestFilter,
-  format: THREE.RGBAFormat,
-  type: THREE.FloatType,
-  depthBuffer: true,
-  stencilBuffer: false,
-});
-colorTarget.fresh = false;
-colorTarget.freshPbuf = false;
-const colorTargetPbuf = new Float32Array(colorTargetSize*colorTargetSize*4);
-// window.colorTargetPbuf = colorTargetPbuf;
-const colorTargetCoordBuf = new Float32Array(colorTargetSize*colorTargetSize*3);
-// window.colorTargetCoordBuf = colorTargetCoordBuf;
-colorTarget.update = () => {
-  if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
-    cursorCamera.position.copy(camera.position);
-    cursorCamera.quaternion.copy(camera.quaternion);
-    _renderDepth(colorTarget, cursorCamera);
-    colorTarget.fresh = true;
-    colorTarget.freshPbuf = false;
-  }
-};
-colorTarget.updatePbuf = async () => {
-  if (!colorTarget.freshPbuf) {
-    await new Promise((accept, reject) => {
-      requestAnimationFrame(accept);
-    });
-    renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, colorTargetPbuf, 0);
-
-    let index = 0;
-    for (let x = 0; x < colorTargetSize; x++) {
-      for (let y = 0; y < colorTargetSize; y++) {
-        // console.log(i);
-        const xFactor = x / colorTargetSize;
-        const yFactor = y / colorTargetSize;
-        const px = Math.floor(xFactor * colorTarget.width);
-        const py = Math.floor((1-yFactor) * colorTarget.height)-1;
-        const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
-        
-        localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
-        localVector.copy(localRaycaster.ray.origin)
-          .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
-          .toArray(colorTargetCoordBuf, index);
-        index += 3;
-      }
-    }
-
-    colorTarget.freshPbuf = true;
-  }
-};
-
-const raycastTarget = new THREE.WebGLRenderTarget(1, 1, {
-  minFilter: THREE.LinearFilter,
-  magFilter: THREE.NearestFilter,
-  format: THREE.RGBAFormat,
-  type: THREE.FloatType,
-  depthBuffer: true,
-  stencilBuffer: false,
-});
-
-const raycastMesh = (() => {
-  const geometry = new THREE.BoxBufferGeometry(0.05, 0.05, 0.05);
-  const material = new THREE.MeshPhongMaterial({
-    color: 0xFF0000,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  return mesh;
-})();
-raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
-container.add(raycastMesh);
-
-const particlesMesh = (() => {
-  const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
-  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*colorTargetSize*colorTargetSize);
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  const material = new THREE.MeshBasicMaterial({
-    color: 0x00FFFF,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  mesh.update = async () => {
-    colorTarget.update();
-    await colorTarget.updatePbuf();
-
-    let index = 0;
-    let baseIndex = 0;
-    for (let x = 0; x < colorTargetSize; x++) {
-      for (let y = 0; y < colorTargetSize; y++) {
-        const newCubeGeometry = cubeGeometry.clone()
-          .applyMatrix(localMatrix.makeTranslation(colorTargetCoordBuf[baseIndex], colorTargetCoordBuf[baseIndex+1], colorTargetCoordBuf[baseIndex+2]));
-        positions.set(newCubeGeometry.attributes.position.array, index*newCubeGeometry.attributes.position.array.length);
-        index++;
-        baseIndex += 3;
-      }
-    }
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  };
-  return mesh;
-})();
-particlesMesh.visible = cpuSwitchWrap.classList.contains('on');
-container.add(particlesMesh);
-
-const gpuParticlesMeshMaterial = (() => {
-  const depthVsh = `
-    // uniform float uAnimation;
-    // attribute float typex;
-    // varying vec3 vPosition;
-    uniform mat4 uMatrixWorld;
-    uniform mat4 uProjectionMatrixInverse;
-    uniform vec3 uDirection;
-    uniform sampler2D uDepthTex;
-    uniform float uNear;
-    uniform float uFar;
-    float DecodeFloatRGBA( vec4 rgba ) {
-      return dot( rgba, vec4(1.0, 255.0, 255.0*255.0, 255.0*255.0*255.0) );
-    }
-    void main() {
-      float xFactor = uv.x;
-      float yFactor = uv.y;
-      float z = DecodeFloatRGBA(texture2D(uDepthTex, vec2(xFactor, 1.0-yFactor)));
-
-      vec2 coords = vec2(xFactor * 2. - 1., -yFactor * 2. + 1.);
-      vec3 origin = (uMatrixWorld * uProjectionMatrixInverse * vec4(coords.x, coords.y, ( uNear + uFar ) / ( uNear - uFar ), 1.0)).xyz;
-      vec3 direction = uDirection;
-
-      vec3 p = position + origin + direction * z;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.);
-    }
-  `;
-  const depthFsh = `
-    vec4 EncodeFloatRGBA( float v ) {
-      vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
-      enc = fract(enc);
-      // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
-      return enc;
-    }
-    // const float infinity = 1./0.;
-    void main() {
-      gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
-    }
-  `;
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      uMatrixWorld: {
-        type: 'm4',
-        value: new THREE.Matrix4(),
-      },
-      uProjectionMatrixInverse: {
-        type: 'm4',
-        value: new THREE.Matrix4(),
-      },
-      uDirection: {
-        type: 'v3',
-        value: new THREE.Vector3(),
-      },
-      uNear: {
-        type: 'f',
-        value: 0,
-      },
-      uFar: {
-        type: 'f',
-        value: 1,
-      },
-      uDepthTex: {
-        type: 't',
-        value: null,
-      },
-    },
-    vertexShader: depthVsh,
-    fragmentShader: depthFsh,
-    // transparent: true,
-  });
-})();
-const gpuParticlesMesh = (() => {
-  const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
-  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*colorTargetSize*colorTargetSize);
-  const numVecs = cubeGeometry.attributes.position.array.length/3;
-  const uvs = new Float32Array(numVecs*2*colorTargetSize*colorTargetSize);
-
-  let i = 0;
-  for (let x = 0; x < colorTargetSize; x++) {
-    for (let y = 0; y < colorTargetSize; y++) {
-      const xFactor = x / colorTargetSize;
-      const yFactor = y / colorTargetSize;
-      /* const px = Math.floor(xFactor * colorTarget.width);
-      const py = Math.floor((1-yFactor) * colorTarget.height);
-      const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
-      
-      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
-      localVector.copy(localRaycaster.ray.origin)
-        .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z)); */
-      positions.set(cubeGeometry.attributes.position.array, i*cubeGeometry.attributes.position.array.length);
-      for (let j = 0; j < numVecs; j++) {
-        /* if (j === 10) {
-          console.log('set uv', i*numVecs*2 + j*2, xFactor, yFactor);
-        } */
-        uvs[i*numVecs*2 + j*2] = xFactor;
-        uvs[i*numVecs*2 + j*2 + 1] = yFactor;
-      }
-      i++;
-    }
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  const material = gpuParticlesMeshMaterial;
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
-  mesh.update = () => {
-    colorTarget.update();
-
-    gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(cursorCamera.matrixWorld);
-    gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(cursorCamera.projectionMatrixInverse);
-    gpuParticlesMeshMaterial.uniforms.uDirection.value.set(0, 0, -1).transformDirection(cursorCamera.matrixWorld);
-    gpuParticlesMeshMaterial.uniforms.uNear.value = cursorCamera.near;
-    gpuParticlesMeshMaterial.uniforms.uFar.value = cursorCamera.far;
-    gpuParticlesMeshMaterial.uniforms.uDepthTex.value = colorTarget.texture;
-  };
-  return mesh;
-})();
-gpuParticlesMesh.visible = gpuSwitchWrap.classList.contains('on');
-container.add(gpuParticlesMesh);
-
 const depthMaterial = (() => {
   const depthVsh = `
     // uniform float uAnimation;
@@ -1538,28 +1300,6 @@ const depthMaterial = (() => {
     }
   `;
   return new THREE.ShaderMaterial({
-    uniforms: {
-      /* uCurrentParcel: {
-        type: 'v4',
-        value: new THREE.Vector4(),
-      },
-      uHoverParcel: {
-        type: 'v4',
-        value: new THREE.Vector4(),
-      },
-      uSelectedParcel: {
-        type: 'v4',
-        value: new THREE.Vector4(),
-      },
-      uSelectedColor: {
-        type: 'c',
-        value: new THREE.Color().setHex(0x29b6f6),
-      },
-      uAnimation: {
-        type: 'f',
-        value: 1,
-      }, */
-    },
     vertexShader: depthVsh,
     fragmentShader: depthFsh,
     // transparent: true,
@@ -1713,6 +1453,86 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
   extensions: {
     derivatives: true,
   },
+});
+const colorTargetSize = 256;
+class XRRaycaster {
+  constructor({width = colorTargetSize, height = colorTargetSize, renderer = new THREE.WebGLRenderer()} = {}) {
+    this.width = width;
+    this.height = height;
+
+    const colorTarget = new THREE.WebGLRenderTarget(width, height, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.NearestFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.FloatType,
+      depthBuffer: true,
+      stencilBuffer: false,
+    });
+    colorTarget.fresh = false;
+    colorTarget.freshPbuf = false;
+    const colorTargetPbuf = new Float32Array(colorTargetSize*colorTargetSize*4); // encoded z depths
+    this.colorTargetPbuf = colorTargetPbuf;
+    const colorTargetCoordBuf = new Float32Array(colorTargetSize*colorTargetSize*3); // decoded xyz points
+    this.colorTargetCoordBuf = colorTargetCoordBuf;
+    colorTarget.update = () => {
+      if (!colorTarget.fresh || !cursorCamera.position.equals(camera.position) || !cursorCamera.quaternion.equals(camera.quaternion)) {
+        cursorCamera.position.copy(camera.position);
+        cursorCamera.quaternion.copy(camera.quaternion);
+        _renderDepth(colorTarget, cursorCamera);
+        colorTarget.fresh = true;
+        colorTarget.freshPbuf = false;
+      }
+    };
+    colorTarget.updatePbuf = async () => {
+      if (!colorTarget.freshPbuf) {
+        await new Promise((accept, reject) => {
+          requestAnimationFrame(accept);
+        });
+        renderer.readRenderTargetPixels(colorTarget, 0, 0, colorTarget.width, colorTarget.height, colorTargetPbuf, 0);
+
+        let index = 0;
+        for (let x = 0; x < colorTargetSize; x++) {
+          for (let y = 0; y < colorTargetSize; y++) {
+            // console.log(i);
+            const xFactor = x / colorTargetSize;
+            const yFactor = y / colorTargetSize;
+            const px = Math.floor(xFactor * colorTarget.width);
+            const py = Math.floor((1-yFactor) * colorTarget.height)-1;
+            const z = DecodeFloatRGBA(colorTargetPbuf, (px * 4) + (py * colorTargetSize * 4));
+            
+            localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
+            localVector.copy(localRaycaster.ray.origin)
+              .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
+              .toArray(colorTargetCoordBuf, index);
+            index += 3;
+          }
+        }
+
+        colorTarget.freshPbuf = true;
+      }
+    };
+    this.colorTarget = colorTarget;
+  }
+  getPointCloudBuffer() {
+    return this.colorTargetCoordBuf;
+  }
+  getDepthTexture() {
+    return this.colorTarget.texture;
+  }
+  update() {
+    this.colorTarget.update();
+  }
+  async updatePbuf() {
+    await this.colorTarget.updatePbuf();
+  }
+  render() {
+    this.colorTarget.fresh = false;
+  }
+}
+const xrRaycaster = new XRRaycaster({
+  width: colorTargetSize,
+  height: colorTargetSize,
+  renderer,
 });
 class XRChunk {
   constructor(x, y, z) {
@@ -2094,8 +1914,8 @@ class XRChunker {
     if (!this.running) {
       this.running = true;
 
-      colorTarget.update();
-      await colorTarget.updatePbuf();
+      xrRaycaster.update();
+      await xrRaycaster.updatePbuf();
 
       // console.log('update 1');
       const chunks = this.chunks.slice();
@@ -2103,8 +1923,8 @@ class XRChunker {
       const res = await worker.request({
         method: 'computeGeometry',
         chunkCoords,
-        colorTargetCoordBuf,
-        colorTargetSize,
+        colorTargetCoordBuf: xrRaycaster.getPointCloudBuffer(),
+        colorTargetSize: xrRaycaster.width,
         voxelSize,
         marchCubesTexSize,
         marchCubesTexSquares,
@@ -2148,6 +1968,192 @@ class XRChunker {
   }
 }
 const xrChunker = new XRChunker();
+
+/* const _makeRenderTargetPlaneMesh = map => {
+  const geometry = new THREE.PlaneBufferGeometry(0.5, 0.5);
+  const material = new THREE.MeshBasicMaterial({
+    map,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  return mesh;
+}; */
+
+const raycastTarget = new THREE.WebGLRenderTarget(1, 1, {
+  minFilter: THREE.LinearFilter,
+  magFilter: THREE.NearestFilter,
+  format: THREE.RGBAFormat,
+  type: THREE.FloatType,
+  depthBuffer: true,
+  stencilBuffer: false,
+});
+
+const raycastMesh = (() => {
+  const geometry = new THREE.BoxBufferGeometry(0.05, 0.05, 0.05);
+  const material = new THREE.MeshPhongMaterial({
+    color: 0xFF0000,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  return mesh;
+})();
+raycastMesh.visible = raycastSwitchWrap.classList.contains('on');
+container.add(raycastMesh);
+
+const particlesMesh = (() => {
+  const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*xrRaycaster.width*xrRaycaster.height);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.MeshBasicMaterial({
+    color: 0x00FFFF,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  mesh.update = async () => {
+    xrRaycaster.update();
+    await xrRaycaster.updatePbuf();
+
+    const pointCloudBuffer = xrRaycaster.getPointCloudBuffer();
+    let index = 0;
+    let baseIndex = 0;
+    for (let x = 0; x < xrRaycaster.width; x++) {
+      for (let y = 0; y < xrRaycaster.height; y++) {
+        const newCubeGeometry = cubeGeometry.clone()
+          .applyMatrix(localMatrix.makeTranslation(pointCloudBuffer[baseIndex], pointCloudBuffer[baseIndex+1], pointCloudBuffer[baseIndex+2]));
+        positions.set(newCubeGeometry.attributes.position.array, index*newCubeGeometry.attributes.position.array.length);
+        index++;
+        baseIndex += 3;
+      }
+    }
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  };
+  return mesh;
+})();
+particlesMesh.visible = cpuSwitchWrap.classList.contains('on');
+container.add(particlesMesh);
+
+const gpuParticlesMeshMaterial = (() => {
+  const depthVsh = `
+    // uniform float uAnimation;
+    // attribute float typex;
+    // varying vec3 vPosition;
+    uniform mat4 uMatrixWorld;
+    uniform mat4 uProjectionMatrixInverse;
+    uniform vec3 uDirection;
+    uniform sampler2D uDepthTex;
+    uniform float uNear;
+    uniform float uFar;
+    float DecodeFloatRGBA( vec4 rgba ) {
+      return dot( rgba, vec4(1.0, 255.0, 255.0*255.0, 255.0*255.0*255.0) );
+    }
+    void main() {
+      float xFactor = uv.x;
+      float yFactor = uv.y;
+      float z = DecodeFloatRGBA(texture2D(uDepthTex, vec2(xFactor, 1.0-yFactor)));
+
+      vec2 coords = vec2(xFactor * 2. - 1., -yFactor * 2. + 1.);
+      vec3 origin = (uMatrixWorld * uProjectionMatrixInverse * vec4(coords.x, coords.y, ( uNear + uFar ) / ( uNear - uFar ), 1.0)).xyz;
+      vec3 direction = uDirection;
+
+      vec3 p = position + origin + direction * z;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.);
+    }
+  `;
+  const depthFsh = `
+    vec4 EncodeFloatRGBA( float v ) {
+      vec4 enc = vec4(1.0, 255.0, 65025.0, 16581375.0) * v;
+      enc = fract(enc);
+      // enc -= enc.xyzw * vec4(1.0/255.0,1.0/255.0,1.0/255.0,1.0/255.0);
+      return enc;
+    }
+    // const float infinity = 1./0.;
+    void main() {
+      gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uMatrixWorld: {
+        type: 'm4',
+        value: new THREE.Matrix4(),
+      },
+      uProjectionMatrixInverse: {
+        type: 'm4',
+        value: new THREE.Matrix4(),
+      },
+      uDirection: {
+        type: 'v3',
+        value: new THREE.Vector3(),
+      },
+      uNear: {
+        type: 'f',
+        value: 0,
+      },
+      uFar: {
+        type: 'f',
+        value: 1,
+      },
+      uDepthTex: {
+        type: 't',
+        value: null,
+      },
+    },
+    vertexShader: depthVsh,
+    fragmentShader: depthFsh,
+    // transparent: true,
+  });
+})();
+const gpuParticlesMesh = (() => {
+  const cubeGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.01).toNonIndexed();
+  const positions = new Float32Array(cubeGeometry.attributes.position.array.length*xrRaycaster.width*xrRaycaster.height);
+  const numVecs = cubeGeometry.attributes.position.array.length/3;
+  const uvs = new Float32Array(numVecs*2*colorTargetSize*colorTargetSize);
+
+  let i = 0;
+  for (let x = 0; x < colorTargetSize; x++) {
+    for (let y = 0; y < colorTargetSize; y++) {
+      const xFactor = x / colorTargetSize;
+      const yFactor = y / colorTargetSize;
+      /* const px = Math.floor(xFactor * colorTarget.width);
+      const py = Math.floor((1-yFactor) * colorTarget.height);
+      const z = DecodeFloatRGBA(pbuf, (px * 4) + (py * colorTarget.width * 4));
+      
+      localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), cursorCamera);
+      localVector.copy(localRaycaster.ray.origin)
+        .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z)); */
+      positions.set(cubeGeometry.attributes.position.array, i*cubeGeometry.attributes.position.array.length);
+      for (let j = 0; j < numVecs; j++) {
+        /* if (j === 10) {
+          console.log('set uv', i*numVecs*2 + j*2, xFactor, yFactor);
+        } */
+        uvs[i*numVecs*2 + j*2] = xFactor;
+        uvs[i*numVecs*2 + j*2 + 1] = yFactor;
+      }
+      i++;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+  const material = gpuParticlesMeshMaterial;
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.frustumCulled = false;
+  mesh.update = () => {
+    xrRaycaster.update();
+
+    gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(cursorCamera.matrixWorld);
+    gpuParticlesMeshMaterial.uniforms.uProjectionMatrixInverse.value.copy(cursorCamera.projectionMatrixInverse);
+    gpuParticlesMeshMaterial.uniforms.uDirection.value.set(0, 0, -1).transformDirection(cursorCamera.matrixWorld);
+    gpuParticlesMeshMaterial.uniforms.uNear.value = cursorCamera.near;
+    gpuParticlesMeshMaterial.uniforms.uFar.value = cursorCamera.far;
+    gpuParticlesMeshMaterial.uniforms.uDepthTex.value = xrRaycaster.getDepthTexture();
+  };
+  return mesh;
+})();
+gpuParticlesMesh.visible = gpuSwitchWrap.classList.contains('on');
+container.add(gpuParticlesMesh);
 
 /* const textureMesh = _makeRenderTargetPlaneMesh(marchCubesRenderTarget.texture);
 textureMesh.position.set(1, 1, 0);
@@ -2243,8 +2249,7 @@ function animate(timestamp, frame, referenceSpace) {
 
   renderer.render(scene, camera);
   xrChunker.render();
-
-  colorTarget.fresh = false;
+  xrRaycaster.render();
 }
 renderer.setAnimationLoop(animate);
     </script>
