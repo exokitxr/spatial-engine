@@ -111,14 +111,16 @@ export class XRRaycaster {
     if (xFactor >= 0 && xFactor <= 1 && yFactor >= 0 && yFactor <= 1) {
       localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
 
-      this.updateView(localRaycaster.ray.origin.toArray(), localQuaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction).toArray());
+      const p = localRaycaster.ray.origin.toArray();
+      const q = localQuaternion.setFromUnitVectors(localVector.set(0, 0, -1), localRaycaster.ray.direction).toArray();
+      this.updateView(p, q);
       this.updateTexture();
       await XRRaycaster.nextFrame();
       this.updateDepthBuffer();
 
       const z = XRRaycaster.decodePixelDepth(this.colorTargetDepthBuf, 0);
-      return localVector.copy(localRaycaster.ray.origin)
-        .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
+      return localVector.fromArray(p)
+        .add(localVector2.set(0, 0, -1).applyQuaternion(localQuaternion.fromArray(q)).multiplyScalar(z))
         .toArray();
     } else {
       return null;
