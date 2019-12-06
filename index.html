@@ -924,14 +924,11 @@ const scene = new THREE.Scene();
 const container = new THREE.Object3D();
 scene.add(container);
 
-const fov_y = 60;
+const fov = 60;
 const aspect = window.innerWidth / window.innerHeight;
-const orthoDepth = 3;
-const height_ortho = orthoDepth * 2 * Math.atan( fov_y*(Math.PI/180) / 2 );
-const width_ortho  = height_ortho * aspect;
-const camera = new THREE.PerspectiveCamera(fov_y, aspect, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 1000);
 camera.position.y = 1.5;
-camera.position.z = 0.5;
+camera.position.z = 0.5 ;
 // camera.lookAt(new THREE.Vector3(0, 1, 0))
 
 const ambientLight = new THREE.AmbientLight(0x808080);
@@ -1559,6 +1556,9 @@ class XRRaycaster {
   }
 }
 const colorTargetSize = 256;
+const orthoDepth = 3;
+const height_ortho = orthoDepth * 2 * Math.atan( fov*(Math.PI/180) / 2 );
+const width_ortho  = height_ortho * aspect;
 const raycastCamera = new THREE.OrthographicCamera(
   width_ortho  / -2, width_ortho   /  2,
   height_ortho /  2, height_ortho  / -2,
