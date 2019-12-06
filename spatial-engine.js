@@ -101,11 +101,14 @@ export class XRRaycaster {
     };
     this.colorTarget = colorTarget;
   }
-  getPointCloudBuffer() {
-    return this.colorTargetCoordBuf;
-  }
   getDepthTexture() {
     return this.colorTarget.texture;
+  }
+  getDepthBuffer() {
+    return this.colorTargetDepthBuf;
+  }
+  getPointCloudBuffer() {
+    return this.colorTargetCoordBuf;
   }
   async raycast(camera, xFactor, yFactor) {
     if (xFactor >= 0 && xFactor <= 1 && yFactor >= 0 && yFactor <= 1) {
