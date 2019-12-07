@@ -2033,7 +2033,13 @@ setInterval(() => {
   if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
-  xrChunker.updateView(camera.position.toArray(), camera.quaternion.toArray());
+  xrChunker.updateTransform(
+    camera.position.clone()
+      .add(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion))
+      .toArray(),
+    camera.quaternion.toArray(),
+    new THREE.Vector3(2, 2, 2).toArray()
+  );
   xrChunker.updateMesh(async () => {
     xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
     xrRaycaster.updateTexture();

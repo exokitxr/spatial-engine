@@ -219,33 +219,41 @@ export class XRChunker extends EventTarget {
     }
     return null;
   }
-  updateView(p, q) {
+  updateTransform(p, q, s) {
     const position = localVector.fromArray(p);
     const quaternion = localQuaternion.fromArray(q);
+    const scale = localVector2.fromArray(s);
 
     const _floorVector = v => new THREE.Vector3(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
-    const cameraCoord = _floorVector(position);
-    const cameraCenter = cameraCoord.clone().add(new THREE.Vector3(0.5, 0.5, 0.5));
-    const neededCoords = [
-      cameraCoord.clone(),
-      _floorVector(cameraCenter.clone().add(new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion))),
-    ];
-    for (let z = -1; z >= -1; z--) {
-      for (let x = -1; x <= 1; x++) {
-        for (let y = 1; y >= -1; y--) {
-          if (x === 0 && y === 0) {
-            continue;
-          } else {
-            const c = _floorVector(cameraCenter.clone().add(new THREE.Vector3(x, y, z).normalize().applyQuaternion(quaternion)));
-            if (!neededCoords.some(c2 => c2.equals(c))) {
-              neededCoords.push(c);
-            }
-          }
+    const cameraCenter = _floorVector(position).add(new THREE.Vector3(0.5, 0.5, 0.5));
+
+    const neededCoords = [];
+    const _addNeededCoord = (x, y, z) => {
+      const c = _floorVector(cameraCenter.clone().add(new THREE.Vector3(x, y, z).applyQuaternion(quaternion)));
+      if (!neededCoords.some(c2 => c2.equals(c))) {
+        neededCoords.push(c);
+      }
+    }
+    for (let z = 0; z >= -scale.z/2; z--) {
+      _addNeededCoord(0, 0, z);
+    }
+    for (let z = -scale.z/2; z <= scale.z/2; z+=0.5) {
+      for (let x = -scale.x/2; x <= scale.x/2; x+=0.5) {
+        for (let y = -scale.y/2; y <= scale.y/2; y+=0.5) {
+          _addNeededCoord(x, y, z);
         }
       }
     }
+    for (let z = scale.z/2; z >= -scale.z/2; z-=0.5) {
+      for (let x = scale.x/2; x >= -scale.x/2; x-=0.5) {
+        for (let y = scale.y/2; y >= -scale.y/2; y-=0.5) {
+          _addNeededCoord(x, y, z);
+        }
+      }
+    }
+
     const missingChunkCoords = neededCoords.filter(c => !this.getChunkAt(c.x, c.y, c.z));
-    const outrangedChunks = this.chunks.filter(chunk => chunk.object.position.distanceTo(cameraCoord) >= 3.75);
+    const outrangedChunks = this.chunks.filter(chunk => !neededCoords.some(coord => coord.equals(chunk.object.position)));
     for (let i = 0; i < outrangedChunks.length; i++) {
       const chunk = outrangedChunks[i];
       this.chunks.splice(this.chunks.indexOf(chunk), 1);
