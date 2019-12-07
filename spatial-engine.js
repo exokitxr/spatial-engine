@@ -104,11 +104,13 @@ export class XRRaycaster {
         let index4 = 0;
         for (let y = height-1; y >= 0; y--) {
           for (let x = 0; x < width; x++) {
-            const z = XRRaycaster.decodePixelDepth(colorTargetDepthBuf, index4);
-
             localVector.fromArray(cameraOrigins, index3)
               .applyMatrix4(camera.matrixWorld)
-              .add(localVector2.set(0, 0, -1).transformDirection(camera.matrixWorld).multiplyScalar(z))
+              .add(
+                localVector2.set(0, 0, -1)
+                  .transformDirection(camera.matrixWorld)
+                  .multiplyScalar(XRRaycaster.decodePixelDepth(colorTargetDepthBuf, index4))
+              )
               .toArray(colorTargetCoordBuf, index3);
             index3 += 3;
             index4 += 4;
