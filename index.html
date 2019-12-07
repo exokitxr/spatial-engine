@@ -820,6 +820,10 @@ header > .login-form.phase-3 > .phaseless-content
           <div class=switch id=cpu-switch></div>
           CPU pointcloud
         </label>
+        <label class=switch-wrap id=chunks-switch-wrap>
+          <div class=switch id=chunks-switch></div>
+          Chunks
+        </label>
         <label class=switch-wrap id=raycast-switch-wrap>
           <div class=switch id=raycast-switch></div>
           Raycast
@@ -844,7 +848,7 @@ header > .login-form.phase-3 > .phaseless-content
     </div>
     <script type=module>
 import './three.js';
-// import './BufferGeometryUtils.js';
+import './BufferGeometryUtils.js';
 // import './OutlineEffect.js';
 import './OrbitControls.js';
 // import './TransformControls.js';
@@ -1139,6 +1143,14 @@ const cpuSwitchWrap = document.getElementById('cpu-switch-wrap');
 cpuSwitchWrap.addEventListener('click', () => {
   cpuSwitchWrap.classList.toggle('on');
   particlesMesh.visible = cpuSwitchWrap.classList.contains('on');
+});
+const chunksSwitchWrap = document.getElementById('chunks-switch-wrap');
+chunksSwitchWrap.addEventListener('click', () => {
+  chunksSwitchWrap.classList.toggle('on');
+  const enabled = chunksSwitchWrap.classList.contains('on');
+  for (let i = 0; i < xrChunker.chunks.length; i++) {
+    xrChunker.chunks[i].volumeMesh.visible = enabled;
+  }
 });
 const raycastSwitchWrap = document.getElementById('raycast-switch-wrap');
 raycastSwitchWrap.addEventListener('click', () => {
@@ -1459,11 +1471,74 @@ const xrMouseRaycaster = new XRRaycaster({
   depth: raycastDepth,
   onRender: _renderRaycaster,
 });
+
+const edgeWidth = 0.01;
+const edgeGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+  new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0, -0.1, 0)),
+  new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 0.1)),
+  new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(1, 0, 0))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0.1, 0, 0)),
+]);
+const portalTargetGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, 0.5, 0)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, -1, 0))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, -0.5, 0)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, 0.5, 1)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, 0.5, 0)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, 0.5, 1)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, -1, 0))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, -0.5, 1)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -1, 0))))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, -0.5, 0)),
+  edgeGeometry.clone()
+    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-1, 1, 0).normalize(), new THREE.Vector3(1, -1, 0).normalize())))
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, -0.5, 1)),
+]);
+const volumeTargetGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+  portalTargetGeometry
+    .clone()
+    .applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.5)),
+  new THREE.BoxBufferGeometry(0.1, edgeWidth, edgeWidth),
+  new THREE.BoxBufferGeometry(edgeWidth, 0.05, edgeWidth).applyMatrix(new THREE.Matrix4().makeTranslation(0, 0.05/2, 0)),
+  new THREE.BoxBufferGeometry(edgeWidth, edgeWidth, 0.05).applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.05/2)),
+]);
+const volumeMaterial = new THREE.MeshBasicMaterial({
+  color: new THREE.Color(0x333333),
+  /* transparent: true,
+  opacity: 0.1, */
+});
+const _makeVolumeMesh = () => {
+  const mesh = new THREE.Mesh(volumeTargetGeometry, volumeMaterial);
+  mesh.frustumCulled = false;
+  return mesh;
+};
 const xrChunker = new XRChunker();
 xrChunker.addEventListener('addchunk', e => {
   const {data: chunk} = e;
 
   container.add(chunk.object);
+
+  const volumeMesh = _makeVolumeMesh();
+  volumeMesh.visible = chunksSwitchWrap.classList.contains('on');
+  chunk.object.add(volumeMesh);
+  chunk.volumeMesh = volumeMesh;
 
   const potentialsTexture = new THREE.DataTexture(null, (width+1)*(height+1)*(depth+1), 1, THREE.LuminanceFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping, THREE.NearestFilter, THREE.NearestFilter);
   chunk.potentialsTexture = potentialsTexture;
@@ -1980,11 +2055,14 @@ const _hideUiMeshes = () => {
   const oldGpuParticlesMeshVisible = gpuParticlesMesh.visible;
   gpuParticlesMesh.visible = false;
   const unhideXrChunks = xrChunker.chunks.map(chunk => {
+    const oldVolumeMeshVisible = chunk.volumeMesh.visible;
+    chunk.volumeMesh.visible = false;
     const oldVoxelsMeshVisible = chunk.voxelsMesh.visible;
     chunk.voxelsMesh.visible = false;
     const oldMarchCubesMeshVisible = chunk.marchCubesMesh.visible;
     chunk.marchCubesMesh.visible = false;
     return () => {
+      chunk.volumeMesh.visible = oldVolumeMeshVisible;
       chunk.voxelsMesh.visible = oldVoxelsMeshVisible;
       chunk.marchCubesMesh.visible = oldMarchCubesMeshVisible;
     };
