@@ -1979,7 +1979,16 @@ const _hideUiMeshes = () => {
   particlesMesh.visible = false;
   const oldGpuParticlesMeshVisible = gpuParticlesMesh.visible;
   gpuParticlesMesh.visible = false;
-  const unhideXrChunker = xrChunker.hideChunks();
+  const unhideXrChunks = xrChunker.chunks.map(chunk => {
+    const oldVoxelsMeshVisible = chunk.voxelsMesh.visible;
+    chunk.voxelsMesh.visible = false;
+    const oldMarchCubesMeshVisible = chunk.marchCubesMesh.visible;
+    chunk.marchCubesMesh.visible = false;
+    return () => {
+      chunk.voxelsMesh.visible = oldVoxelsMeshVisible;
+      chunk.marchCubesMesh.visible = oldMarchCubesMeshVisible;
+    };
+  });
   // const oldTextureMeshVisible = textureMesh.visible;
   // textureMesh.visible = false;
 
@@ -1987,7 +1996,9 @@ const _hideUiMeshes = () => {
     raycastMesh.visible = oldRaycastMeshVisible;
     particlesMesh.visible = oldParticlesMeshVisible;
     gpuParticlesMesh.visible = oldGpuParticlesMeshVisible;
-    unhideXrChunker();
+    for (let i = 0; i < unhideXrChunks.length; i++) {
+      unhideXrChunks[i]();
+    }
     // textureMesh.visible = oldTextureMeshVisible;
   };
 };

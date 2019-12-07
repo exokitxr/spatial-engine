@@ -219,23 +219,6 @@ export class XRChunker extends EventTarget {
     }
     return null;
   }
-  hideChunks() {
-    const unhideXrChunks = this.chunks.map(chunk => {
-      const oldVoxelsMeshVisible = chunk.voxelsMesh.visible;
-      chunk.voxelsMesh.visible = false;
-      const oldMarchCubesMeshVisible = chunk.marchCubesMesh.visible;
-      chunk.marchCubesMesh.visible = false;
-      return () => {
-        chunk.voxelsMesh.visible = oldVoxelsMeshVisible;
-        chunk.marchCubesMesh.visible = oldMarchCubesMeshVisible;
-      };
-    });
-    return () => {
-      for (let i = 0; i < unhideXrChunks.length; i++) {
-        unhideXrChunks[i]();
-      }
-    };
-  }
   updateView(p, q) {
     const position = localVector.fromArray(p);
     const quaternion = localQuaternion.fromArray(q);
