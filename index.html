@@ -1472,53 +1472,55 @@ const xrMouseRaycaster = new XRRaycaster({
   onRender: _renderRaycaster,
 });
 
-const edgeWidth = 0.01;
-const edgeGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
-  new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0, -0.1, 0)),
-  new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 0.1)),
-  new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(1, 0, 0))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0.1, 0, 0)),
-]);
-const portalTargetGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, 0.5, 0)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, -1, 0))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, -0.5, 0)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, 0.5, 1)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, 0.5, 0)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, 0.5, 1)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, -1, 0))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, -0.5, 1)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -1, 0))))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, -0.5, 0)),
-  edgeGeometry.clone()
-    .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-1, 1, 0).normalize(), new THREE.Vector3(1, -1, 0).normalize())))
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, -0.5, 1)),
-]);
-const volumeTargetGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
-  portalTargetGeometry
-    .clone()
-    .applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.5)),
-  new THREE.BoxBufferGeometry(0.1, edgeWidth, edgeWidth),
-  new THREE.BoxBufferGeometry(edgeWidth, 0.05, edgeWidth).applyMatrix(new THREE.Matrix4().makeTranslation(0, 0.05/2, 0)),
-  new THREE.BoxBufferGeometry(edgeWidth, edgeWidth, 0.05).applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.05/2)),
-]);
+const volumeTargetGeometry = (() => {
+  const edgeWidth = 0.01;
+  const edgeGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+    new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0, -0.1, 0)),
+    new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(0, 0, 1))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 0.1)),
+    new THREE.BoxBufferGeometry(edgeWidth, 0.4, edgeWidth)
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), new THREE.Vector3(1, 0, 0))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0.1, 0, 0)),
+  ]);
+  const portalTargetGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, 0.5, 0)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, -1, 0))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, -0.5, 0)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, 0.5, 1)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, 0.5, 0)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, 0.5, 1)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1))))
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, -1, 0))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(-0.5, -0.5, 1)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0))))
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -1, 0))))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, -0.5, 0)),
+    edgeGeometry.clone()
+      .applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(-1, 1, 0).normalize(), new THREE.Vector3(1, -1, 0).normalize())))
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0.5, -0.5, 1)),
+  ]);
+  return THREE.BufferGeometryUtils.mergeBufferGeometries([
+    portalTargetGeometry
+      .clone()
+      .applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.5)),
+    new THREE.BoxBufferGeometry(0.1, edgeWidth, edgeWidth),
+    new THREE.BoxBufferGeometry(edgeWidth, 0.05, edgeWidth).applyMatrix(new THREE.Matrix4().makeTranslation(0, 0.05/2, 0)),
+    new THREE.BoxBufferGeometry(edgeWidth, edgeWidth, 0.05).applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, -0.05/2)),
+  ]);
+})();
 const volumeMaterial = new THREE.MeshBasicMaterial({
   color: new THREE.Color(0x333333),
   /* transparent: true,
