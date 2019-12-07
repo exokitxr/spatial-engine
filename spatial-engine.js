@@ -77,22 +77,41 @@ export class XRRaycaster {
         colorTarget.freshCoordBuf = false;
       }
     };
+    const cameraOrigins = (() => {
+      const origins = new Float32Array(width*height*3);
+      let index = 0;
+      for (let y = height-1; y >= 0; y--) {
+        for (let x = 0; x < width; x++) {
+          const xFactor = x / width;
+          const yFactor = y / height;
+          localVector.set(xFactor * 2 - 1, -yFactor * 2 + 1, (camera.near + camera.far) / (camera.near - camera.far))
+            .applyMatrix4(camera.projectionMatrixInverse)
+            .toArray(origins, index);
+          index += 3;
+        }
+      }
+      // console.log('use camera matrix world', camera.matrixWorld.toArray().join(','));
+      return origins;
+    })();
+    if (!window.cameraOrigins) {
+      window.cameraOrigins = cameraOrigins;
+      window.lol1 = width;
+      window.lol2 = height;
+    }
     colorTarget.updatePointCloudBuffer = () => {
       if (!colorTarget.freshCoordBuf) {
-        let index = 0;
-        for (let x = 0; x < width; x++) {
-          for (let y = 0; y < height; y++) {
-            const xFactor = x / width;
-            const yFactor = y / height;
-            const px = Math.floor(xFactor * width);
-            const py = Math.floor((1-yFactor) * height)-1;
-            const z = XRRaycaster.decodePixelDepth(colorTargetDepthBuf, (px * 4) + (py * width * 4));
-            
-            localRaycaster.setFromCamera(localVector2D.set(xFactor * 2 - 1, -yFactor * 2 + 1), camera);
-            localVector.copy(localRaycaster.ray.origin)
-              .add(localVector2.copy(localRaycaster.ray.direction).multiplyScalar(z))
-              .toArray(colorTargetCoordBuf, index);
-            index += 3;
+        let index3 = 0;
+        let index4 = 0;
+        for (let y = height-1; y >= 0; y--) {
+          for (let x = 0; x < width; x++) {
+            const z = XRRaycaster.decodePixelDepth(colorTargetDepthBuf, index4);
+
+            localVector.fromArray(cameraOrigins, index3)
+              .applyMatrix4(camera.matrixWorld)
+              .add(localVector2.set(0, 0, -1).transformDirection(camera.matrixWorld).multiplyScalar(z))
+              .toArray(colorTargetCoordBuf, index3);
+            index3 += 3;
+            index4 += 4;
           }
         }
 
