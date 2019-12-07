@@ -1,5 +1,3 @@
-const basePath = import.meta.url.replace(/[^\/]+$/, '');
-
 const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
 const localVector2D = new THREE.Vector2();
@@ -186,7 +184,7 @@ export class XRChunker extends EventTarget {
 
     this.worker = (() => {
       let cbs = [];
-      const worker = new Worker(`${basePath}mc-worker.js`);
+      const worker = new Worker('mc-worker.js');
       worker.onmessage = e => {
         const {data} = e;
         const {error, result} = data;
