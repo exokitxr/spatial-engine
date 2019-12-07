@@ -184,9 +184,7 @@ export class XRChunker extends EventTarget {
 
     this.worker = (() => {
       let cbs = [];
-      const worker = new Worker('mc-worker.js', {
-        type: 'module',
-      });
+      const worker = new Worker('mc-worker.js');
       worker.onmessage = e => {
         const {data} = e;
         const {error, result} = data;
