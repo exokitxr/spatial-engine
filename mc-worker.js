@@ -28,7 +28,7 @@ self.wasmModule = (moduleName, moduleFn) => {
       printErr(text) { console.warn(text); },
       locateFile(path, scriptDirectory) {
         if (path === 'mc.wasm') {
-          return 'bin/' + path;
+          return (importScripts.basePath || '') + 'bin/' + path;
         } else {
           return path;
         }
