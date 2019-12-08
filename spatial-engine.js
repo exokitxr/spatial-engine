@@ -1,5 +1,7 @@
 const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
+const localVector3 = new THREE.Vector3();
+const localVector4 = new THREE.Vector3();
 const localVector2D = new THREE.Vector2();
 const localQuaternion = new THREE.Quaternion();
 const localRaycaster = new THREE.Raycaster();
@@ -240,12 +242,12 @@ export class XRChunker extends EventTarget {
     const quaternion = localQuaternion.fromArray(q);
     const scale = localVector2.fromArray(s);
 
-    const _floorVector = v => new THREE.Vector3(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
-    const cameraCenter = _floorVector(position).add(new THREE.Vector3(0.5, 0.5, 0.5));
+    const _floorVector = v => v.set(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
+    const cameraCenter = _floorVector(localVector3.copy(position)).add(localVector4.set(0.5, 0.5, 0.5));
 
     const neededCoords = [];
     const _addNeededCoord = (x, y, z) => {
-      const c = _floorVector(cameraCenter.clone().add(new THREE.Vector3(x, y, z).applyQuaternion(quaternion)));
+      const c = _floorVector(cameraCenter.clone().add(localVector4.set(x, y, z).applyQuaternion(quaternion)));
       if (!neededCoords.some(c2 => c2.equals(c))) {
         neededCoords.push(c);
       }
