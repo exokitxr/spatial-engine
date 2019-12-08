@@ -803,6 +803,9 @@ const localVector2 = new THREE.Vector3();
 const localMatrix = new THREE.Matrix4();
 const localColor = new THREE.Color();
 const localColor2 = new THREE.Color();
+const localVectorArray = Array(3);
+const localVectorArray2 = Array(3);
+const localQuaternionArray = Array(4);
 
 const scene = new THREE.Scene();
 
@@ -1811,7 +1814,7 @@ const particlesMesh = (() => {
   mesh.frustumCulled = false;
   mesh.update = async () => {
     const vrCamera = _getVrCamera();
-    xrRaycaster.updateView(vrCamera.position.toArray(), vrCamera.quaternion.toArray());
+    xrRaycaster.updateView(vrCamera.position.toArray(localVectorArray), vrCamera.quaternion.toArray(localQuaternionArray));
     xrRaycaster.updateTexture();
     await XRRaycaster.nextFrame();
     xrRaycaster.updateDepthBuffer();
@@ -1928,7 +1931,7 @@ const gpuParticlesMesh = (() => {
   mesh.frustumCulled = false;
   mesh.update = () => {
     const vrCamera = _getVrCamera();
-    xrRaycaster.updateView(vrCamera.position.toArray(), vrCamera.quaternion.toArray());
+    xrRaycaster.updateView(vrCamera.position.toArray(localVectorArray), vrCamera.quaternion.toArray(localQuaternionArray));
     xrRaycaster.updateTexture();
 
     gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(xrRaycaster.camera.matrixWorld);
@@ -1974,13 +1977,13 @@ setInterval(() => {
   xrChunker.updateTransform(
     localVector.copy(vrCamera.position)
       .add(localVector2.set(0, 0, -1).applyQuaternion(vrCamera.quaternion))
-      .toArray(),
-    vrCamera.quaternion.toArray(),
-    [2, 2, 2]
+      .toArray(localVectorArray),
+    vrCamera.quaternion.toArray(localQuaternionArray),
+    localVector.set(2, 2, 2).toArray(localVectorArray2)
   );
   xrChunker.updateMesh(async () => {
     const vrCamera = _getVrCamera();
-    xrRaycaster.updateView(vrCamera.position.toArray(), vrCamera.quaternion.toArray());
+    xrRaycaster.updateView(vrCamera.position.toArray(localVectorArray), vrCamera.quaternion.toArray(localQuaternionArray));
     xrRaycaster.updateTexture();
     await XRRaycaster.nextFrame();
     xrRaycaster.updateDepthBuffer();
