@@ -793,16 +793,14 @@ const width = 10;
 const height = 10;
 const depth = 10;
 const voxelSize = 0.1;
-const potentialClearValue = -0.2;
-const potentialSetValue = 0.7;
+// const potentialClearValue = -0.2;
+// const potentialSetValue = 0.7;
 
 // const _getPotentialIndex = (x, y, z) => x + y*(width+1)*(depth+1) + z*(width+1);
 
 const localMatrix = new THREE.Matrix4();
 const localColor = new THREE.Color();
 const localColor2 = new THREE.Color();
-
-const z180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 const scene = new THREE.Scene();
 
