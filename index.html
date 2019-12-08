@@ -873,6 +873,7 @@ const potentialSetValue = 0.7;
 
 const localMatrix = new THREE.Matrix4();
 const localColor = new THREE.Color();
+const localColor2 = new THREE.Color();
 
 const z180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
@@ -1436,11 +1437,13 @@ const _renderRaycaster = ({target, near, far, matrixWorld, projectionMatrix}) =>
   scene.overrideMaterial = depthMaterial;
   depthMaterial.uniforms.uNear.value = near;
   depthMaterial.uniforms.uFar.value = far;
+  const oldClearColor = localColor.copy(renderer.getClearColor());
+  const oldClearAlpha = renderer.getClearAlpha();
   renderer.setRenderTarget(target);
-  renderer.setClearColor(localColor.set(0, 0, 0), 1);
+  renderer.setClearColor(localColor2.setRGB(0, 0, 0), 1);
   renderer.render(scene, raycasterCamera);
   scene.overrideMaterial = null;
-  renderer.setClearColor(localColor.set(0, 0, 0), 0);
+  renderer.setClearColor(oldClearColor, oldClearAlpha);
 
   unhideUiMeshes();
 
