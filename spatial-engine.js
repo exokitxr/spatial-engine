@@ -2,6 +2,7 @@ const localVector = new THREE.Vector3();
 const localVector2 = new THREE.Vector3();
 const localVector3 = new THREE.Vector3();
 const localVector4 = new THREE.Vector3();
+const localVector5 = new THREE.Vector3();
 const localVector2D = new THREE.Vector2();
 const localQuaternion = new THREE.Quaternion();
 const localRaycaster = new THREE.Raycaster();
@@ -17,6 +18,7 @@ const _makePromise = () => {
   p.reject = reject;
   return p;
 };
+const _floorVector = v => v.set(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
 
 export class XRRaycaster {
   constructor({width = 512, height = 512, fov = 60, aspect = 1, depth = 3, near = 0.1, far = 300, renderer = new THREE.WebGLRenderer(), onRender = (target, camera) => {}} = {}) {
@@ -224,6 +226,8 @@ export class XRChunker extends EventTarget {
       });
       return worker;
     })();
+
+    this._neededCoordsCache = [];
   }
   getChunkAt(x, y, z) {
     for (let i = 0; i < this.chunks.length; i++) {
@@ -242,14 +246,26 @@ export class XRChunker extends EventTarget {
     const quaternion = localQuaternion.fromArray(q);
     const scale = localVector2.fromArray(s);
 
-    const _floorVector = v => v.set(Math.floor(v.x), Math.floor(v.y), Math.floor(v.z));
     const cameraCenter = _floorVector(localVector3.copy(position)).add(localVector4.set(0.5, 0.5, 0.5));
 
-    const neededCoords = [];
+    const neededCoords = this._neededCoordsCache;
+    let numNeededCoords = 0;
+    const _hasNeededCoord = coord => {
+      for (let i = 0; i < numNeededCoords; i++) {
+        if (neededCoords[i].equals(coord)) {
+          return true;
+        }
+      }
+      return false;
+    };
     const _addNeededCoord = (x, y, z) => {
-      const c = _floorVector(cameraCenter.clone().add(localVector4.set(x, y, z).applyQuaternion(quaternion)));
-      if (!neededCoords.some(c2 => c2.equals(c))) {
-        neededCoords.push(c);
+      const c = _floorVector(localVector4.copy(cameraCenter).add(localVector5.set(x, y, z).applyQuaternion(quaternion)));
+      if (!_hasNeededCoord(c)) {
+        const index = numNeededCoords++;
+        if (index >= neededCoords.length) {
+          neededCoords.push(new THREE.Vector3());
+        }
+        neededCoords[index].copy(c);
       }
     }
     for (let z = 0; z >= -scale.z/2; z--) {
@@ -270,18 +286,21 @@ export class XRChunker extends EventTarget {
       }
     }
 
-    const missingChunkCoords = neededCoords.filter(c => !this.getChunkAt(c.x, c.y, c.z));
-    const outrangedChunks = this.chunks.filter(chunk => !neededCoords.some(coord => coord.equals(chunk.object.position)));
-    for (let i = 0; i < outrangedChunks.length; i++) {
-      const chunk = outrangedChunks[i];
-      this.chunks.splice(this.chunks.indexOf(chunk), 1);
-      this.dispatchEvent(new MessageEvent('removechunk', {data: chunk}));
-    }
-    for (let i = 0; i < missingChunkCoords.length; i++) {
-      const coord = missingChunkCoords[i];
-      const chunk = new XRChunk(coord.x, coord.y, coord.z);
-      this.chunks.push(chunk);
-      this.dispatchEvent(new MessageEvent('addchunk', {data: chunk}));
+    this.chunks = this.chunks.filter(chunk => {
+      if (_hasNeededCoord(chunk.object.position)) {
+        return true;
+      } else {
+        this.dispatchEvent(new MessageEvent('removechunk', {data: chunk}));
+        return false;
+      }
+    });
+    for (let i = 0; i < numNeededCoords; i++) {
+      const coord = neededCoords[i];
+      if (!this.getChunkAt(coord.x, coord.y, coord.z)) {
+        const chunk = new XRChunk(coord.x, coord.y, coord.z);
+        this.chunks.push(chunk);
+        this.dispatchEvent(new MessageEvent('addchunk', {data: chunk}));
+      }
     }
   }
   async updateMesh(getPointCloud) {
