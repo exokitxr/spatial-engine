@@ -798,6 +798,8 @@ const voxelSize = 0.1;
 
 // const _getPotentialIndex = (x, y, z) => x + y*(width+1)*(depth+1) + z*(width+1);
 
+const localVector = new THREE.Vector3();
+const localVector2 = new THREE.Vector3();
 const localMatrix = new THREE.Matrix4();
 const localColor = new THREE.Color();
 const localColor2 = new THREE.Color();
@@ -1968,12 +1970,13 @@ setInterval(() => {
   if (cpuSwitchWrap.classList.contains('on')) {
     particlesMesh.update();
   }
+  const vrCamera = _getVrCamera();
   xrChunker.updateTransform(
-    camera.position.clone()
-      .add(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion))
+    localVector.copy(vrCamera.position)
+      .add(localVector2.set(0, 0, -1).applyQuaternion(vrCamera.quaternion))
       .toArray(),
-    camera.quaternion.toArray(),
-    new THREE.Vector3(2, 2, 2).toArray()
+    vrCamera.quaternion.toArray(),
+    [2, 2, 2]
   );
   xrChunker.updateMesh(async () => {
     const vrCamera = _getVrCamera();
