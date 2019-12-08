@@ -1350,27 +1350,34 @@ const marchCubesRenderMaterial = new THREE.ShaderMaterial({
 const colorTargetSize = 256;
 const raycasterCamera = new THREE.PerspectiveCamera();
 const _renderRaycaster = ({target, near, far, matrixWorld, projectionMatrix}) => {
-  const unhideUiMeshes = _hideUiMeshes();
-
   raycasterCamera.near = near;
   raycasterCamera.far = far;
   raycasterCamera.matrixWorld.fromArray(matrixWorld).decompose(raycasterCamera.position, raycasterCamera.quaternion, raycasterCamera.scale);
   raycasterCamera.projectionMatrix.fromArray(projectionMatrix);
-
-  scene.overrideMaterial = depthMaterial;
   depthMaterial.uniforms.uNear.value = near;
   depthMaterial.uniforms.uFar.value = far;
-  const oldClearColor = localColor.copy(renderer.getClearColor());
-  const oldClearAlpha = renderer.getClearAlpha();
-  renderer.setRenderTarget(target);
-  renderer.setClearColor(localColor2.setRGB(0, 0, 0), 1);
-  renderer.render(scene, raycasterCamera);
-  scene.overrideMaterial = null;
-  renderer.setClearColor(oldClearColor, oldClearAlpha);
 
-  unhideUiMeshes();
+  {
+    const unhideUiMeshes = _hideUiMeshes();
 
-  renderer.setRenderTarget(null);
+    scene.overrideMaterial = depthMaterial;
+    const oldVrEnabled = renderer.vr.enabled;
+    renderer.vr.enabled = false;
+    const oldClearColor = localColor.copy(renderer.getClearColor());
+    const oldClearAlpha = renderer.getClearAlpha();
+    renderer.setClearColor(localColor2.setRGB(0, 0, 0), 1);
+    renderer.setRenderTarget(target);
+
+    renderer.render(scene, raycasterCamera);
+
+    scene.overrideMaterial = null;
+    renderer.vr.enabled = oldVrEnabled;
+    renderer.setClearColor(oldClearColor, oldClearAlpha);
+
+    unhideUiMeshes();
+
+    renderer.setRenderTarget(null);
+  }
 };
 const raycastNear = 0.1;
 const raycastFar = 300;
