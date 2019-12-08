@@ -93,11 +93,6 @@ export class XRRaycaster {
       // console.log('use camera matrix world', camera.matrixWorld.toArray().join(','));
       return origins;
     })();
-    if (!window.cameraOrigins) {
-      window.cameraOrigins = cameraOrigins;
-      window.lol1 = width;
-      window.lol2 = height;
-    }
     colorTarget.updatePointCloudBuffer = () => {
       if (!colorTarget.freshCoordBuf) {
         let index3 = 0;
