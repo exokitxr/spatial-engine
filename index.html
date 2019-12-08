@@ -788,28 +788,6 @@ header > .login-form.phase-3 > .phaseless-content
       </header>
 
       <div class=iframe-wrapper id=iframe-wrapper></div>
-      <!-- <div class=tools>
-        <nav class="tool open"><i class="fal fa-video"></i></nav>
-        <nav class=tool><i class="fal fa-mouse-pointer"></i></nav>
-        <nav class=tool><i class="fal fa-arrows"></i></nav>
-        <nav class=tool><i class="fal fa-vector-square"></i></nav>
-      </div> -->
-      <form class=chat id=chat>
-        <div class=messages id=chat-messages></div>
-        <input type=text class=input id=chat-input>
-      </form>
-      <form class=save-dialog id=save-dialog>
-        <input type=text placeholder="Enter file name..." id=save-name-input>
-        <input type=submit value="Save">
-      </form>
-      <!-- <div class="iframe-buttons multibutton">
-        <a class="button first" id="enable-mic-button">Enable Mic</a>
-        <a class="button first" id="disable-mic-button" disabled style="display: none;">Disable Mic</a>
-        <a class="button" id="firstperson-button">Firstperson</a>
-        <a class="button" id="thirdperson-button">Thirdperson</a>
-        <a class="button last" id="enter-xr-button" style="display: none;">Enter XR</a>
-        <a class="button last" id="no-xr-button" disabled style="display: none;">No XR</a>
-      </div> -->
 
       <div class=sidebar>
         <label class="switch-wrap on" id=gpu-switch-wrap>
@@ -849,12 +827,8 @@ header > .login-form.phase-3 > .phaseless-content
     <script type=module>
 import './three.js';
 import './BufferGeometryUtils.js';
-// import './OutlineEffect.js';
 import './OrbitControls.js';
-// import './TransformControls.js';
 import './Reflector.js';
-// import './land.js';
-// import './bmfont.js';
 import {XRRaycaster, XRChunk, XRChunker} from './spatial-engine.js';
 
 import ModelLoader from 'https://model-loader.exokit.org/model-loader.js';
@@ -878,8 +852,6 @@ const localColor2 = new THREE.Color();
 const z180Quaternion = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 
 const scene = new THREE.Scene();
-
-// renderItems(scene);
 
 const container = new THREE.Object3D();
 scene.add(container);
@@ -2091,6 +2063,87 @@ const _hideUiMeshes = () => {
     // textureMesh.visible = oldTextureMeshVisible;
   };
 };
+
+let session = null;
+let possessRig = false;
+const _setSession = async newSession => {
+  session = newSession;
+
+  const _end = () => {
+    session.removeEventListener('end', _end);
+    session = null;
+
+    clearInterval(loadReferenceSpaceInterval);
+  };
+  session.addEventListener('end', _end);
+
+  let referenceSpace;
+  let referenceSpaceType = '';
+  const _loadReferenceSpace = async () => {
+    const lastReferenceSpaceType = referenceSpaceType;
+    try {
+      referenceSpace = await session.requestReferenceSpace('local-floor');
+      referenceSpaceType = 'local-floor';
+    } catch (err) {
+      referenceSpace = await session.requestReferenceSpace('local');
+      referenceSpaceType = 'local';
+    }
+
+    if (referenceSpaceType !== lastReferenceSpaceType) {
+      console.log(`referenceSpace changed to ${referenceSpaceType}`);
+    }
+  };
+  await _loadReferenceSpace();
+  const loadReferenceSpaceInterval = setInterval(_loadReferenceSpace, 1000);
+
+  await new Promise((accept, reject) => {
+    renderer.vr.setSession(session);
+
+    session.requestAnimationFrame((timestamp, frame) => {
+      renderer.vr.enabled = true;
+      renderer.setAnimationLoop(null);
+      renderer.vr.setAnimationLoop(animate);
+
+      const pose = frame.getViewerPose(referenceSpace);
+      const viewport = session.renderState.baseLayer.getViewport(pose.views[0]);
+      // const width = viewport.width;
+      const height = viewport.height;
+      const fullWidth = (() => {
+        let result = 0;
+        for (let i = 0; i < pose.views.length; i++) {
+          result += session.renderState.baseLayer.getViewport(pose.views[i]).width;
+        }
+        return result;
+      })();
+      renderer.vr.setSession(null);
+      renderer.setSize(fullWidth, height);
+      renderer.setPixelRatio(1);
+      renderer.vr.setSession(session);
+
+      if (typeof FakeXRDisplay !== 'undefined') {
+        fakeXrDisplay = new FakeXRDisplay();
+        camera.projectionMatrix.toArray(fakeXrDisplay.projectionMatrix);
+      }
+
+      accept();
+    });
+  });
+};
+const enterXrButton = document.getElementById('enter-xr-button');
+enterXrButton.addEventListener('click', async () => {
+  if (!session) {
+    const newSession = await navigator.xr.requestSession('immersive-vr', {
+      requiredFeatures: ['local-floor'],
+    });
+    await _setSession(newSession);
+  }
+
+  possessRig = true;
+  if (rig) {
+    rig.decapitate();
+  }
+});
+
 function animate(timestamp, frame, referenceSpace) {
   if (meshingTextureSwitchWrap.classList.contains('on') || voxelTextureSwitchWrap.classList.contains('on')) {
     const unhideUiMeshes = _hideUiMeshes();
