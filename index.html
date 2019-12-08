@@ -1801,7 +1801,8 @@ const particlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = async () => {
-    xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
+    const vrCamera = _getVrCamera();
+    xrRaycaster.updateView(vrCamera.position.toArray(), vrCamera.quaternion.toArray());
     xrRaycaster.updateTexture();
     await XRRaycaster.nextFrame();
     xrRaycaster.updateDepthBuffer();
@@ -1917,7 +1918,8 @@ const gpuParticlesMesh = (() => {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.update = () => {
-    xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
+    const vrCamera = _getVrCamera();
+    xrRaycaster.updateView(vrCamera.position.toArray(), vrCamera.quaternion.toArray());
     xrRaycaster.updateTexture();
 
     gpuParticlesMeshMaterial.uniforms.uMatrixWorld.value.copy(xrRaycaster.camera.matrixWorld);
@@ -1967,7 +1969,8 @@ setInterval(() => {
     new THREE.Vector3(2, 2, 2).toArray()
   );
   xrChunker.updateMesh(async () => {
-    xrRaycaster.updateView(camera.position.toArray(), camera.quaternion.toArray());
+    const vrCamera = _getVrCamera();
+    xrRaycaster.updateView(vrCamera.position.toArray(), vrCamera.quaternion.toArray());
     xrRaycaster.updateTexture();
     await XRRaycaster.nextFrame();
     xrRaycaster.updateDepthBuffer();
@@ -2017,6 +2020,19 @@ const _hideUiMeshes = () => {
 
 let session = null;
 let possessRig = false;
+const _getVrCamera = () => {
+  if (possessRig) {
+    const vrCameras = renderer.vr.getCamera(camera).cameras;
+    const vrCamera = vrCameras[0];
+    const vrCamera2 = vrCameras[1];
+    vrCamera.matrixWorld.decompose(vrCamera.position, vrCamera.quaternion, vrCamera.scale);
+    vrCamera2.matrixWorld.decompose(vrCamera2.position, vrCamera2.quaternion, vrCamera2.scale);
+    vrCamera.position.add(vrCamera2.position).divideScalar(2);
+    return vrCamera;
+  } else {
+    return camera;
+  }
+};
 const _setSession = async newSession => {
   session = newSession;
 
