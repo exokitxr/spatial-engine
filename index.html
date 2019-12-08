@@ -735,6 +735,11 @@ header > .login-form.phase-3 > .phaseless-content
 
       <div class=iframe-wrapper id=iframe-wrapper></div>
 
+      <div class="iframe-buttons multibutton">
+        <a class="button first last" id="enter-xr-button" style="display: none;">Enter XR</a>
+        <a class="button first last" id="no-xr-button" disabled style="display: none;">No XR</a>
+      </div>
+
       <div class=sidebar>
         <label class="switch-wrap on" id=gpu-switch-wrap>
           <div class=switch id=gpu-switch></div>
@@ -2076,6 +2081,28 @@ const _setSession = async newSession => {
   });
 };
 const enterXrButton = document.getElementById('enter-xr-button');
+const noXrButton = document.getElementById('no-xr-button');
+(async () => {
+  let result;
+  if (navigator.xr) {
+    try {
+      await navigator.xr.supportsSession('immersive-vr');
+      result = true;
+    } catch (err) {
+      console.warn(err);
+      result = false;
+    }
+  } else {
+    result = false;
+  }
+  if (result) {
+    console.log('xr available');
+    enterXrButton.style.display = null;
+  } else {
+    console.log('no xr');
+    noXrButton.style.display = null;
+  }
+})();
 enterXrButton.addEventListener('click', async () => {
   if (!session) {
     const newSession = await navigator.xr.requestSession('immersive-vr', {
